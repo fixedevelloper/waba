@@ -25,9 +25,9 @@ class ChatbotController extends Controller
     public function verify(Request $request)
     {
         $verifyToken = '1gXBHRVWa2kMkKufWJp1zvl3SES15hqAFqlgkKGqrROIEju6E2cyUe8mtUKm5YUY'; // doit être le même que celui entré sur Meta
-
-        if ($request->input('hub.verify_token') === $verifyToken) {
-            return response($request->input('hub.challenge'), 200);
+        logger($request->input('hub.verify_token'));
+        if ($request->input('hub_verify_token') === $verifyToken) {
+            return response($request->input('hub_challenge'), 200);
         }
 
         return response('Invalid verify token', 403);
