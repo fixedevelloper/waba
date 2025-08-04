@@ -22,7 +22,7 @@ class ChatbotController extends Controller
     {
         $this->wetransfertService = $wetransfertService;
     }
-    public function verify(Request $request)
+/*    public function verify(Request $request)
     {
         $verifyToken = '1gXBHRVWa2kMkKufWJp1zvl3SES15hqAFqlgkKGqrROIEju6E2cyUe8mtUKm5YUY'; // doit être le même que celui entré sur Meta
         logger($request->input('hub.verify_token'));
@@ -39,56 +39,62 @@ class ChatbotController extends Controller
         Log::info('WABA Webhook Received:', $request->all());
 
         return response('EVENT_RECEIVED', 200);
-    }
+    }*/
     public function webhook(Request $request)
     {
-
         $entry = $request->input('entry')[0] ?? null;
         $changes = $entry['changes'][0]['value'] ?? null;
         $messages = $changes['messages'][0] ?? null;
         $contacts = $changes['contacts'][0] ?? null;
 
-/*        if (!$messages) {
+        if (!$messages) {
             return response()->json(['status' => 'no message']);
         }
 
         $from = $messages['from'];
         $msgType = $messages['type'];
         $interactiveData = $messages['interactive'] ?? null;
-        $msgText = $msgType === 'text' ? strtolower(trim($messages['text']['body'])) : null;
+        $msgText = ($msgType === 'text') ? strtolower(trim($messages['text']['body'] ?? '')) : null;
         $name = $contacts['profile']['name'] ?? 'Client';
 
-        $chatbotsession = ChatbotSession::firstOrCreate(['user_number' => $from,'is_delete'=>false]);
+        $chatbotSession = ChatbotSession::firstOrCreate([
+            'user_number' => $from,
+            'is_delete' => false
+        ]);
+
+        // Récupération de l'ID interactif si besoin
         $interactiveId = null;
         if ($msgType === 'interactive') {
-            if ($interactiveData['type'] === 'button_reply') {
-                $interactiveId = $interactiveData['button_reply']['id'];
-            } elseif ($interactiveData['type'] === 'list_reply') {
-                $interactiveId = $interactiveData['list_reply']['id'];
-            }
+            $interactiveType = $interactiveData['type'] ?? '';
+            $interactiveId = $interactiveData[$interactiveType]['id'] ?? null;
         }
-        if ($chatbotsession->staring_step = 'start') {
-            if ($chatbotsession->staring_menu = 'welcome') {
+
+        // Démarrage de la conversation
+        if ($chatbotSession->staring_step === 'start') {
+            if ($chatbotSession->staring_menu === 'welcome') {
                 $salutations = ['bonjour', 'salut', 'hello', 'bonsoir', 'yo'];
                 if (in_array($msgText, $salutations)) {
                     $this->sendWelcomeTemplate($from, $name);
-                    $chatbotsession->staring_menu = 'waiting_menu';
+                    $chatbotSession->staring_menu = 'waiting_menu';
                 } else {
                     $this->sendMessage($from, "Bonjour 👋. Envoyez *bonjour* pour commencer.");
                 }
             } else {
                 $this->sendMenuInteractive($from);
-                $chatbotsession->staring_step = 'service';
+                $chatbotSession->staring_step = 'service';
             }
         } else {
-            if ($chatbotsession->service == 'wetransfertcash') {
-                $this->wetransfertService->starting($from, $msgText, $chatbotsession, $interactiveId);
+            // Lancement du service si déjà choisi
+            if ($chatbotSession->service === 'wetransfertcash') {
+                $this->wetransfertService->starting($from, $msgText, $chatbotSession, $interactiveId);
             }
         }
 
-        $chatbotsession->save();*/
+        $chatbotSession->save();
+
         return response()->json(['status' => 'ok']);
     }
+
 
     private function sendWelcomeTemplate($to, $name)
     {

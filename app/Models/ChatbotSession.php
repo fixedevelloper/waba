@@ -6,5 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ChatbotSession extends Model
 {
-    //
+    protected $fillable=[
+      'user_number'
+    ];
 }
