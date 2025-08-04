@@ -30,7 +30,7 @@ class ChatbotController extends Controller
         $messages = $changes['messages'][0] ?? null;
         $contacts = $changes['contacts'][0] ?? null;
 
-        if (!$messages) {
+/*        if (!$messages) {
             return response()->json(['status' => 'no message']);
         }
 
@@ -68,7 +68,7 @@ class ChatbotController extends Controller
             }
         }
 
-        $chatbotsession->save();
+        $chatbotsession->save();*/
         return response()->json(['status' => 'ok']);
     }
 
