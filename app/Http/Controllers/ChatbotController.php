@@ -8,6 +8,7 @@ use App\Models\ChatbotSession;
 use App\Services\WetransfertChatService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class ChatbotController extends Controller
 {
@@ -21,7 +22,24 @@ class ChatbotController extends Controller
     {
         $this->wetransfertService = $wetransfertService;
     }
+    public function verify(Request $request)
+    {
+        $verifyToken = '1gXBHRVWa2kMkKufWJp1zvl3SES15hqAFqlgkKGqrROIEju6E2cyUe8mtUKm5YUY'; // doit être le même que celui entré sur Meta
 
+        if ($request->input('hub.verify_token') === $verifyToken) {
+            return response($request->input('hub.challenge'), 200);
+        }
+
+        return response('Invalid verify token', 403);
+    }
+
+    public function handle(Request $request)
+    {
+        // Tu reçois ici les messages ou statuts
+        Log::info('WABA Webhook Received:', $request->all());
+
+        return response('EVENT_RECEIVED', 200);
+    }
     public function webhook(Request $request)
     {
 
