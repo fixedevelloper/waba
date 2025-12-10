@@ -26,17 +26,37 @@ class ApiController extends Controller
     public function sendMessage(Request $request)
     {
         $request->validate([
-            'phone' => 'required',
-            'message' => 'required'
+            'phone'     => 'required|string',
+            'template'  => 'required|string',
+            'variables' => 'required|array'
         ]);
 
-        // On enregistre l'interaction si c'est un client existant
+        // Vérification de la clé API
+        $apiKey = ApiKey::where('key', $request->header('X-API-KEY'))->first();
+        if (!$apiKey) {
+            return response()->json([
+                'error' => true,
+                'message' => 'Invalid API Key'
+            ], 401);
+        }
 
-        $apy_key=ApiKey::query()->where('key',$request->header('X-API-KEY'))->first();
-        $response = $this->router->sendMessage($request->phone, $request->message, $apy_key->id);
+        // Récupération des variables
+        $variables = $request->get('variables'); // array
+
+        // Envoi du template
+        $response = $this->router->sendMessageTemplate(
+            $request->phone,
+            $variables,               // <-- ici : array
+            $request->template,
+            $apiKey->id
+        );
+
+        // Enregistrement de l'interaction du contact
         $this->contact->registerInteraction($request->phone);
+
         return response()->json($response);
     }
+
 
 
 

@@ -30,27 +30,70 @@ class WhatsappService
         ->withToken($token)->post($url, $payload)->json();
     }
 
+
+
     public function sendTemplate($to, $templateName, $variables = [])
     {
         $token = app(WhatsappTokenService::class)->getToken();
         $url = $this->baseUrl . $this->phoneNumberId . '/messages';
+        $variables=$variables[0];
+        $formattedParams=[
+            [
+                'type' => 'text',
+                'parameter_name' => 'account',
+                'text' => $variables['account'],
+            ],
+            [
+                'type' => 'text',
+                'parameter_name' => 'expeditor',
+                'text' => $variables['expeditor'],
+            ],
+            [
+                'type' => 'text',
+                'parameter_name' => 'beneficiary',
+                'text' => $variables['beneficiary'],
+            ],
+            [
+                'type' => 'text',
+                'parameter_name' => 'amount',
+                'text' => $variables['amount'],
+            ],
+            [
+                'type' => 'text',
+                'parameter_name' => 'country',
+                'text' => $variables['country'],
+            ],
+        ];
+        if ($templateName=='wt_tx_failed'){
+            $formattedParams[]= [
+                'type' => 'text',
+                'parameter_name' => 'country_beneficiary',
+                'text' => $variables['country_beneficiary'],
+            ];
+        }
+
         $payload = [
             'messaging_product' => 'whatsapp',
             'to' => $to,
             'type' => 'template',
             'template' => [
-                'name' => $templateName,
+                'name' => $templateName, // Nom exact du template dans WhatsApp
                 'language' => ['code' => 'fr'],
                 'components' => [
                     [
                         'type' => 'body',
-                        'parameters' => array_map(fn($v) => ['type'=>'text','text'=>$v], $variables)
+                        'parameters' => $formattedParams
                     ]
                 ]
             ]
         ];
+
         logger($payload);
-        return Http::timeout(30) // 30 secondes au lieu de 10
-        ->withToken($token)->post($url, $payload)->json();
+
+        return Http::timeout(30)
+            ->withToken($token)
+            ->post($url, $payload)
+            ->json();
     }
+
 }
