@@ -2,9 +2,11 @@
 
 namespace Database\Seeders;
 
+use App\Models\ApiKey;
 use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
 {
@@ -13,19 +15,19 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        User::factory()->create([
-            'name' => 'Super Admin',
-            'email' => 'admin@localhost.com',
-            'phone' => '675066919',
-            'user_type'=>0
-        ]);
+        // User::factory(10)->create();
 
-        $this->call([
-            ImageSeeder::class,
-            CategorySeeder::class,
-            ProductSeeder::class,
-            DepartementSeeder::class,
-            CitySeeder::class
+      $user=  User::factory()->create([
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+        ]);
+        ApiKey::create([
+            'name' => 'Default API Key',
+            'key' => Str::random(40),
+            'quota' => 1000,
+            'used' => 0,
+            'user_id' => $user->id,
+            'expires_at' => now()->addYear(),
         ]);
     }
 }

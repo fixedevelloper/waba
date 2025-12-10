@@ -122,6 +122,5 @@ return [
         'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
-    'WHATSAPP_TOKEN'=>env('WHATSAPP_TOKEN'),
-    'WHATSAPP_PHONE_NUMBER_ID'=>env('WHATSAPP_PHONE_NUMBER_ID')
+
 ];

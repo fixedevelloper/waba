@@ -1,11 +1,12 @@
 <?php
 
-
-use App\Http\Controllers\ChatbotController;
+use App\Http\Controllers\ApiController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::post('webhook', [ChatbotController::class, 'webhook']);
+Route::middleware(['api_key'])->group(function () {
+    Route::post('/send-message', [ApiController::class, 'sendMessage']);
+    Route::get('/messages', [ApiController::class, 'getMessages']);
+    Route::get('/senders', [ApiController::class, 'getSenders']);
+});
 
-Route::get('/webhook/whatsapp', [ChatbotController::class, 'webhook']);
-Route::post('/webhook/whatsapp', [ChatbotController::class, 'webhook']);
