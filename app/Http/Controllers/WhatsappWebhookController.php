@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\WhatsappSession;
+use App\Services\WhatsappTokenService;
+use Illuminate\Contracts\Routing\ResponseFactory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -307,13 +309,17 @@ class WhatsappWebhookController extends Controller
     }
 
 
-
     /**
      * 🔥 Méthode pour envoyer un message WhatsApp Cloud API
+     * @param $to
+     * @param $text
+     * @return ResponseFactory
      */
     private function send($to, $text)
     {
-        Http::post(
+        $token = app(WhatsappTokenService::class)->getToken();
+        Http::timeout(30) // 30 secondes au lieu de 10
+        ->withToken($token)->post(
             "https://graph.facebook.com/v19.0/".config('whatsapp.phone_number_id')."/messages",
             [
                 "messaging_product" => "whatsapp",
