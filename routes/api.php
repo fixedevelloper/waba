@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/webhook/whatsapp', [WhatsappWebhookController::class, 'handle']);
+Route::get('/webhook/whatsapp', [WhatsappWebhookController::class, 'verify']);
 
 Route::middleware(['api_key'])->group(function () {
     Route::post('/send-message', [ApiController::class, 'sendMessage']);
