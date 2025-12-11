@@ -15,6 +15,7 @@ class WhatsappWebhookController extends Controller
         $token = $request->query('hub_verify_token');
         $challenge = $request->query('hub_challenge');
 
+        Log::info('Webhook verify request', $request->all());
         if ($mode === 'subscribe' && $token === env('WHATSAPP_VERIFY_TOKEN')) {
             return response($challenge, 200);
         }
@@ -313,7 +314,7 @@ class WhatsappWebhookController extends Controller
     private function send($to, $text)
     {
         Http::post(
-            "https://graph.facebook.com/v19.0/".env('WHATSAPP_PHONE_ID')."/messages",
+            "https://graph.facebook.com/v19.0/".config('whatsapp.phone_number_id')."/messages",
             [
                 "messaging_product" => "whatsapp",
                 "to" => $to,
