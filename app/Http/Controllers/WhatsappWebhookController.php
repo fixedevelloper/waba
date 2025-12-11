@@ -318,7 +318,7 @@ class WhatsappWebhookController extends Controller
     private function send($to, $text)
     {
         $token = app(WhatsappTokenService::class)->getToken();
-        Http::timeout(30) // 30 secondes au lieu de 10
+      $res=  Http::timeout(30) // 30 secondes au lieu de 10
         ->withToken($token)->post(
             "https://graph.facebook.com/v19.0/".config('whatsapp.phone_number_id')."/messages",
             [
@@ -326,8 +326,8 @@ class WhatsappWebhookController extends Controller
                 "to" => $to,
                 "text" => ["body" => $text]
             ]
-        );
-
+        )->json();
+Log::error('send_whassap',$res);
         return response('OK', 200);
     }
 }
