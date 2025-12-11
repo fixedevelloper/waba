@@ -90,7 +90,7 @@ class WhatsappWebhookController extends Controller
             case 'awaiting_choice':
                 if (str_contains($input, 'trans')) {
                     $session->update(['email' => $text, 'step' => 'waiting_email']);
-                    return $this->send($session->wa_id, "Entrez votre *mot de passe*.");
+                    return $this->send($session->wa_id, "Entrez votre *Email*.");
                 } elseif (str_contains($input, 'solde')) {
                     $session->update(['step' => 'start']);
                     return  $this->send($session->wa_id, "Fonction Solde non implémentée (exemple).");
@@ -104,7 +104,17 @@ class WhatsappWebhookController extends Controller
                 return $this->send($session->wa_id, "Entrez votre *mot de passe*.");
 
             case 'waiting_password':
-                return $this->loginTransfertApi($session, $text);
+                if (!isset($res['status']) || $res['status'] !== 'success') {
+                    return;
+                }
+                $data = $res['data'];
+                $session->user_id     = $data['customer_id'];
+                $session->token       = $data['token'];
+                $session->step        = 'choose_mode'; // prochaine étape du flow
+                $session->expires_at  = now()->addMinutes(30); // expiration du token
+                $session->save();
+                $session->update(['step' => 'main_menu']);
+                return ;
 
             case 'main_menu':
                 if ($text == "1") {
