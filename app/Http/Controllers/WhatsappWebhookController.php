@@ -104,6 +104,8 @@ class WhatsappWebhookController extends Controller
                 return $this->send($session->wa_id, "Entrez votre *mot de passe*.");
 
             case 'waiting_password':
+                $session->update(['password'=>$text,'step' => 'main_menu']);
+                $res = WhatsappChatService::loginApi($session, $session->phone);
                 if (!isset($res['status']) || $res['status'] !== 'success') {
                     return;
                 }
@@ -113,7 +115,7 @@ class WhatsappWebhookController extends Controller
                 $session->step        = 'choose_mode'; // prochaine étape du flow
                 $session->expires_at  = now()->addMinutes(30); // expiration du token
                 $session->save();
-                $session->update(['step' => 'main_menu']);
+
                 return ;
 
             case 'main_menu':
