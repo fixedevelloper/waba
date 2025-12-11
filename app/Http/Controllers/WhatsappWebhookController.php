@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\WhatsappSession;
+use App\Services\WhatsappChatService;
 use App\Services\WhatsappTokenService;
 use Illuminate\Contracts\Routing\ResponseFactory;
 use Illuminate\Http\Request;
@@ -71,17 +72,32 @@ class WhatsappWebhookController extends Controller
 
     /**
      * 🔥 LOGIQUE GLOBALE DU CHATBOT
+     * @param WhatsappSession $session
+     * @param $text
+     * @return ResponseFactory
      */
     private function processStep(WhatsappSession $session, $text)
     {
+        $input = trim(strtolower((string) ($text ?? '')));
         switch ($session->step) {
 
-            // --- ÉTAPES DÉJÀ EXISTANTES ---
-            case 'start':
-                $session->update(['step' => 'waiting_email']);
-                return $this->send($session->wa_id,
-                    "👋 Bienvenue, entrez votre *email*."
-                );
+            case 'menu':
+                $body = "Bienvenue sur MonService 👋\nChoisissez :\n- Transfert\n- Retrait\n- Solde\nRépondez par le mot correspondant.";
+                $this->send($session->wa_id, $body);
+                $session->update(['step' => 'awaiting_choice']);
+                break;
+
+            case 'awaiting_choice':
+                if (str_contains($input, 'trans')) {
+                    $session->update(['email' => $text, 'step' => 'waiting_password']);
+                    return $this->send($session->wa_id, "Entrez votre *mot de passe*.");
+                } elseif (str_contains($input, 'solde')) {
+                    $session->update(['step' => 'menu']);
+                    return  $this->send($session->wa_id, "Fonction Solde non implémentée (exemple).");
+                } else {
+                    $this->send($session->wa_id, "Choix non reconnu. Tapez 'Transfert', 'Retrait' ou 'Solde'.");
+                }
+                break;
 
             case 'waiting_email':
                 $session->update(['email' => $text, 'step' => 'waiting_password']);
