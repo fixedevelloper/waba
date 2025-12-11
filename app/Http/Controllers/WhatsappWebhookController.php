@@ -81,7 +81,7 @@ class WhatsappWebhookController extends Controller
         $input = trim(strtolower((string) ($text ?? '')));
         switch ($session->step) {
 
-            case 'menu':
+            case 'start':
                 $body = "Bienvenue sur MonService 👋\nChoisissez :\n- Transfert\n- Retrait\n- Solde\nRépondez par le mot correspondant.";
                 $this->send($session->wa_id, $body);
                 $session->update(['step' => 'awaiting_choice']);
