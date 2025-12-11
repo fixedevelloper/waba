@@ -89,7 +89,7 @@ class WhatsappWebhookController extends Controller
 
             case 'awaiting_choice':
                 if (str_contains($input, 'trans')) {
-                    $session->update(['email' => $text, 'step' => 'waiting_email']);
+                    $session->update(['transfer_mode' => $text, 'step' => 'waiting_email']);
                     return $this->send($session->wa_id, "Entrez votre *Email*.");
                 } elseif (str_contains($input, 'solde')) {
                     $session->update(['step' => 'start']);
@@ -100,7 +100,7 @@ class WhatsappWebhookController extends Controller
                 break;
 
             case 'waiting_email':
-                $session->update(['email' => $text, 'step' => 'waiting_password']);
+                $session->update(['phone' => $text, 'step' => 'waiting_password']);
                 return $this->send($session->wa_id, "Entrez votre *mot de passe*.");
 
             case 'waiting_password':
