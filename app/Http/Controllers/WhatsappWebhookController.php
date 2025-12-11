@@ -82,17 +82,17 @@ class WhatsappWebhookController extends Controller
         switch ($session->step) {
 
             case 'start':
-                $body = "Bienvenue sur MonService 👋\nChoisissez :\n- Transfert\n- Retrait\n- Solde\nRépondez par le mot correspondant.";
+                $body = "Bienvenue sur Wetransfert cash 👋\nChoisissez :\n- Transfert\n- Retrait\n- Solde\nRépondez par le mot correspondant.";
                 $this->send($session->wa_id, $body);
                 $session->update(['step' => 'awaiting_choice']);
                 break;
 
             case 'awaiting_choice':
                 if (str_contains($input, 'trans')) {
-                    $session->update(['email' => $text, 'step' => 'waiting_password']);
+                    $session->update(['email' => $text, 'step' => 'waiting_email']);
                     return $this->send($session->wa_id, "Entrez votre *mot de passe*.");
                 } elseif (str_contains($input, 'solde')) {
-                    $session->update(['step' => 'menu']);
+                    $session->update(['step' => 'start']);
                     return  $this->send($session->wa_id, "Fonction Solde non implémentée (exemple).");
                 } else {
                     $this->send($session->wa_id, "Choix non reconnu. Tapez 'Transfert', 'Retrait' ou 'Solde'.");
