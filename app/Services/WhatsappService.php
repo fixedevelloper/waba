@@ -36,7 +36,9 @@ class WhatsappService
     {
         $token = app(WhatsappTokenService::class)->getToken();
         $url = $this->baseUrl . $this->phoneNumberId . '/messages';
+
         $variables=$variables[0];
+        logger($variables);
         $formattedParams=[
             [
                 'type' => 'text',
