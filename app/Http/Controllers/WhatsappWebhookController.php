@@ -535,10 +535,8 @@ class WhatsappWebhookController extends Controller
                     "🏦 *Opérateur* : {$operator['name']}\n\n" .
                     "💰 *Montant envoyé* : " . number_format($session->amount, 0, ',', ' ') . " XAF\n" .
                     "💸 *Frais* : " . number_format($session->fees, 0, ',', ' ') . " XAF\n" .
-                    "➡️ *Montant final envoyé* : " . number_format($session->amount_send, 0, ',', ' ') . "\n\n" .
-                    "Voulez-vous *confirmer* ? (oui / non)"
+                    "➡️ *Montant final envoyé* : " . number_format($session->amount_send, 0, ',', ' ') . "\n\n"
                 );
-
 
 
             // ----------------------
@@ -546,6 +544,13 @@ class WhatsappWebhookController extends Controller
             // ----------------------
 
             case 'preview':
+                $session->update([
+                    'step'        => 'send'
+                ]);
+                return $this->send($session->wa_id,
+                    "Voulez-vous *confirmer* ? (oui / non)"
+                );
+            case 'send':
                 if (strtolower($text) !== "oui") {
                     $session->update(['step' => 'start']);
                     return $this->send($session->wa_id, "❌ Transfert annulé.");
