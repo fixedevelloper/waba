@@ -307,7 +307,8 @@ class WhatsappWebhookController extends Controller
             case 'select_relaction':
 
                 // Vérifier relation choisie
-                $selectedRelation = collect($session->relations)->firstWhere('id', $text);
+                $selectedRelation = collect($session->relations)
+                    ->firstWhere('id', (int)$text);
                 logger($text);
                 if (!$selectedRelation) {
                     return $this->send($session->wa_id,
