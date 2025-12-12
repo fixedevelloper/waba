@@ -153,16 +153,18 @@ class WhatsappWebhookController extends Controller
                 $res = $response->json();
 
 
-                $session->update([
-                    'country' => $iso2,
-                    'step' => 'select_city'
-                ]);
+
                 $data = $res['data'];
                 $list = "";
                 foreach ($data as $city) {
                     $list .= "{$city['id']}. {$city['name']}\n";
                 }
-
+                $country_id=$data[0]['country_id'];
+                $session->update([
+                    'country' => $iso2,
+                    'country_id' => $country_id,
+                    'step' => 'select_city'
+                ]);
                 return $this->send($session->wa_id,
                     "📍 *Villes disponibles :*\n\n$list\n\nEntrez l’ID de la ville."
                 );
