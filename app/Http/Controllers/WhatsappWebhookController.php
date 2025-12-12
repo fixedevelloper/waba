@@ -144,8 +144,8 @@ class WhatsappWebhookController extends Controller
                 // API: Toutes les villes du pays
 
                 $response = Http::withToken($session->token)
-                    ->get(config('whatsapp.wtc_url') . "/v2/cities/$iso2/codeiso");
-
+                    ->get(config('whatsapp.wtc_url') . "v2/cities/$iso2/codeiso");
+                logger($response);
                 if ($response->failed()) {
                     return $this->send($session->wa_id, "❌ Code pays invalide. Réessayez.");
                 }
