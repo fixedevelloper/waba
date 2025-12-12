@@ -604,13 +604,91 @@ class WhatsappWebhookController extends Controller
     private function processInviteStep(WhatsappSession $session,$text){
 
     }
-    private function processRateCalculator($session,$text)
+    private function processRateCalculator($session, $text)
     {
-        $session->update(['step' => 'enter_amount_rate']);
-        return $this->send($session->wa_id,
-            "💱 *Calculateur de taux*\n\nEntrez un montant en XAF."
-        );
+        switch ($session->step) {
+            case 'awaiting_init':
+                $session->update(['step' => 'enter_country_rate']);
+                return $this->send($session->wa_id,
+                    "🌍 *Calculateur de taux*\n\n"
+                    . "Veuillez entrer le *code ISO2 du pays* destinataire (ex : CI, SN, US, FR)."
+                );
+            case 'enter_country_rate':
+
+                $iso2 = strtoupper(trim($text));
+
+                // API pour vérifier le pays via la route cities/<iso>/code (existe déjà dans ton système)
+                $res = Http::withToken($session->token)
+                    ->get(config('whatsapp.wtc_url') . "v2/cities/$iso2/code");
+
+                // Si l’API retourne une erreur, pays invalide
+                if ($res->failed()) {
+                    return $this->send($session->wa_id,
+                        "❌ *Code pays invalide.*\nVeuillez entrer un code comme: CI, SN, BE, FR, US."
+                    );
+                }
+
+                // Pays valide
+                $session->update([
+                    'rate_country' => $iso2,
+                    'step'         => 'enter_amount_rate'
+                ]);
+
+                return $this->send($session->wa_id,
+                    "💵 Entrez maintenant le *montant en XAF* à transférer."
+                );
+            case 'enter_amount_rate':
+
+                if (!is_numeric($text) || $text <= 0) {
+                    return $this->send($session->wa_id,
+                        "❌ *Montant invalide.*\nVeuillez entrer un nombre supérieur à 0."
+                    );
+                }
+
+                $amount = (float) $text;
+
+                // Appel API taux
+                $countryIso = $session->rate_country;
+
+                $resFees = Http::get(config('whatsapp.wtc_url') . "v2/tauxechanges/$countryIso");
+
+                if ($resFees->failed()) {
+                    return $this->send($session->wa_id,
+                        "❌ Impossible de récupérer les taux. Réessayez plus tard."
+                    );
+                }
+
+                $fees = $resFees->json()['data'];
+
+                // Calcul taux
+                $result = $this->calculTaux(
+                    $amount,
+                    $fees['taux_xaf_usd'] ?? 0,
+                    $fees['taux_country'] ?? 0,
+                    $fees['rate'] ?? 0
+                );
+
+                $session->update([
+                    'amount'       => $amount,
+                    'fees'         => $result['rate'],
+                    'amount_send'  => $result['amount_send'],
+                    'step'         => 'start' // retour au début
+                ]);
+
+                return $this->send($session->wa_id,
+                    "📊 *Résultat du calcul :*\n\n"
+                    . "💰 *Montant en XAF* : " . number_format($amount, 0, ',', ' ') . " XAF\n"
+                    . "💸 *Frais* : " . number_format($result['rate'], 0, ',', ' ') . " XAF\n"
+                    . "➡️ *Montant reçu* : " . number_format($result['amount_send'], 2, ',', ' ') . " {$countryIso}\n\n"
+                    . "Tapez *menu* pour revenir au début."
+                );
+
+        }
+
+
+
     }
+
 
     /**
      * 🔥 Méthode pour envoyer un message WhatsApp Cloud API
