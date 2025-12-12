@@ -144,7 +144,7 @@ class WhatsappWebhookController extends Controller
                 // API: Toutes les villes du pays
 
                 $response = Http::withToken($session->token)
-                    ->get(config('whatsapp.wtc_url') . "/v2/cities/$iso2/code");
+                    ->get(config('whatsapp.wtc_url') . "/v2/cities/$iso2/codeiso");
 
                 if ($response->failed()) {
                     return $this->send($session->wa_id, "❌ Code pays invalide. Réessayez.");
@@ -181,7 +181,7 @@ class WhatsappWebhookController extends Controller
                 $senders = $res_senders['data'];
                 $list = "";
                 foreach ($senders as $s) {
-                    $list .= "{$s['id']}. {$s['firstname']} {$s['lastname']}\n";
+                    $list .= "{$s['id']}. {$s['first_name']} {$s['last_name']}\n";
                 }
 
                 $session->update([
@@ -210,7 +210,7 @@ class WhatsappWebhookController extends Controller
                 // Liste des bénéficiaires (affichage)
                 $list = "";
                 foreach ($benef as $b) {
-                    $list .= "{$b['id']}. {$b['firstname']} {$b['lastname']}\n";
+                    $list .= "{$b['id']}. {$b['first_name']} {$b['last_name']}\n";
                 }
 
                 // Trouver l'expéditeur choisi
@@ -611,7 +611,7 @@ class WhatsappWebhookController extends Controller
         'ifscCode' => $session->swiftCode,
         'total_amount' => $session->amount_send
     ];
-        if ($session->transfer_mode==1){
+        if ($session->transfer_mode=='mobile'){
             $endpoint='mobile';
         }else{
             $endpoint='bank';
