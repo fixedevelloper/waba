@@ -306,10 +306,11 @@ class WhatsappWebhookController extends Controller
 
             case 'select_relaction':
 
+                $relations = json_decode($session->relations, true);
                 // Vérifier relation choisie
-                $selectedRelation = collect($session->relations)
+                $selectedRelation = collect($relations)
                     ->firstWhere('id', (int)$text);
-                logger($text);
+
                 if (!$selectedRelation) {
                     return $this->send($session->wa_id,
                         "❌ *Relation invalide.*\nVeuillez entrer un ID valide."
@@ -348,8 +349,9 @@ class WhatsappWebhookController extends Controller
 
             case 'select_origin_fond':
 
+                $origins = json_decode($session->origins, true);
                 // Vérifier origin valide
-                $selectedOrigin = collect($session->origins)->firstWhere('id', $text);
+                $selectedOrigin = collect($origins)->firstWhere('id', $text);
                 if (!$selectedOrigin) {
                     return $this->send($session->wa_id,
                         "❌ *Origine invalide.*\nVeuillez entrer un ID valide."
@@ -387,8 +389,8 @@ class WhatsappWebhookController extends Controller
 
 
             case 'select_motif':
-
-                $selectedMotif = collect($session->motifs)->firstWhere('id', $text);
+                $motifs = json_decode($session->motifs, true);
+                $selectedMotif = collect($motifs)->firstWhere('id', $text);
                 if (!$selectedMotif) {
                     return $this->send($session->wa_id,
                         "❌ *Motif invalide.*\nVeuillez entrer un ID valide."

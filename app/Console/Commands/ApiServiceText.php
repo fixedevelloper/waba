@@ -28,7 +28,7 @@ class ApiServiceText extends Command
      */
     public function handle()
     {
-        $session = WhatsappSession::find(1);
+        $session = WhatsappSession::find(18);
         if (!$session) {
             logger("Session non trouvée");
             return;
@@ -53,15 +53,12 @@ class ApiServiceText extends Command
         $session->step        = 'choose_mode'; // prochaine étape du flow
         $session->expires_at  = now()->addMinutes(30); // expiration du token
         $session->save();*/
-        $res_senders = Http::withToken($session->token)
-            ->get(config('whatsapp.wtc_url') . "v2/all_senders/{$session->user_id}")->json();
-        $senders = $res_senders['data'];
-        $list = "";
-        foreach ($senders as $s) {
-            logger($s['first_name']);
-            $list .= "{$s['id']}. {$s['first_name']} {$s['last_name']}\n";
-        }
-        logger($list);
+        $text=209;
+        $selectedRelation = collect($session->relations)
+            ->firstWhere('id', (int)$text);
+        $relations = json_decode($session->relations, true);
+
+        logger(collect($relations)->firstWhere('id',$text));
         logger("Session mise à jour avec succès");
     }
 
