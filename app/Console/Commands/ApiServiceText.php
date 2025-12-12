@@ -54,15 +54,17 @@ class ApiServiceText extends Command
         $session->expires_at  = now()->addMinutes(30); // expiration du token
         $session->save();*/
         // ⚠ Correction du bug "=" → "==="
-        $isMobile = ($session->transfer_mode === "mobile" || $session->transfer_mode == 1);
+        $text=20000000;
+        $amount = (float) $text;
 
-        $endpoint = $isMobile ? "operatorslists" : "banklists";
-logger($session->countryId);
-        $resp_operators = Http::withToken($session->token)
-            ->get(
-                config('whatsapp.wtc_url') . "v2/$endpoint/{$session->countryId}"
-            )->json();
-        logger($resp_operators);
+        // Mise à jour du montant dans la session
+        $session->amount = $amount;
+
+        // Appel API des taux
+        $res_fees = Http::withToken($session->token)
+            ->get(config('whatsapp.wtc_url') . "v2/tauxechanges/{$session->countryId}")->json();
+
+        logger($res_fees);
         logger("Session mise à jour avec succès");
     }
 
