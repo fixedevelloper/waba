@@ -86,14 +86,17 @@ class WhatsappWebhookController extends Controller
 
                 case "1":
                     // Mode INVITE
+                    $session->update(['step' => 'awaiting_traitement']);
                     return $this->processInviteStep($session, $text);
 
                 case "2":
                     // Mode CLIENT
+                    $session->update(['step' => 'awaiting_traitement']);
                     return $this->processClientStep($session, $text);
 
                 case "3":
                     // Mode CALCUL TAUX
+                    $session->update(['step' => 'awaiting_traitement']);
                     return $this->processRateCalculator($session,$text);
 
                 default:
@@ -120,7 +123,7 @@ class WhatsappWebhookController extends Controller
         $input = trim(strtolower((string)($text ?? '')));
         switch ($session->step) {
 
-            case 'start':
+            case 'awaiting_traitement':
                 $body = "Bienvenue sur Wetransfert cash 👋\nChoisissez :\n- Transfert\n- Retrait\n- Solde\nRépondez par le mot correspondant.";
                 $this->send($session->wa_id, $body);
                 $session->update(['step' => 'awaiting_choice']);
@@ -607,7 +610,7 @@ class WhatsappWebhookController extends Controller
     private function processRateCalculator($session, $text)
     {
         switch ($session->step) {
-            case 'awaiting_init':
+            case 'awaiting_traitement':
                 $session->update(['step' => 'enter_country_rate']);
                 return $this->send($session->wa_id,
                     "🌍 *Calculateur de taux*\n\n"
