@@ -527,8 +527,8 @@ class WhatsappWebhookController extends Controller
                     "🌍 *Mode* : {$session->transfer_mode}\n" .
                     "🇨🇲 *Pays* : {$session->country}\n" .
                     "🏙️ *Ville ID* : {$session->cityId}\n\n" .
-                    "🧑‍💼 *Expéditeur* : {$sender['firstname']} {$sender['lastname']}\n" .
-                    "👤 *Bénéficiaire* : {$beneficiary['firstname']} {$beneficiary['lastname']}\n" .
+                    "🧑‍💼 *Expéditeur* : {$sender['first_name']} {$sender['last_name']}\n" .
+                    "👤 *Bénéficiaire* : {$beneficiary['first_name']} {$beneficiary['last_name']}\n" .
                     "❤️ *Relation* : {$session->relaction}\n" .
                     "💵 *Origine des fonds* : {$session->origin_fond}\n" .
                     "📝 *Motif* : {$session->motif}\n" .
@@ -547,7 +547,7 @@ class WhatsappWebhookController extends Controller
 
             case 'preview':
                 if (strtolower($text) !== "oui") {
-                    $session->update(['step' => 'main_menu']);
+                    $session->update(['step' => 'start']);
                     return $this->send($session->wa_id, "❌ Transfert annulé.");
                 }
 
