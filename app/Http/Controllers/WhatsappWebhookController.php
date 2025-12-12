@@ -308,6 +308,7 @@ class WhatsappWebhookController extends Controller
 
                 // Vérifier relation choisie
                 $selectedRelation = collect($session->relations)->firstWhere('id', $text);
+                logger($text);
                 if (!$selectedRelation) {
                     return $this->send($session->wa_id,
                         "❌ *Relation invalide.*\nVeuillez entrer un ID valide."
