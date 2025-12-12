@@ -64,9 +64,48 @@ class WhatsappWebhookController extends Controller
                 'user_id' => null
             ]);
         }
+// 🎬 Étape 1 : Message de bienvenue
+        if ($session->step == 'start') {
+
+            $body = "👋 *Bienvenue sur Wetransfert Cash*\n\n"
+                . "Veuillez choisir une option :\n"
+                . "1️⃣ - Mode *Invite*\n"
+                . "2️⃣ - Mode *Client*\n"
+                . "3️⃣ - *Calculer le taux*\n\n"
+                . "Répondez par *1*, *2* ou *3*.";
+
+            $this->send($session->wa_id, $body);
+            $session->update(['step' => 'awaiting_init']);
+            return;
+        }
+
+// 🎬 Étape 2 : Traitement du choix initial
+        if ($session->step == 'awaiting_init') {
+
+            switch ($text) {
+
+                case "1":
+                    // Mode INVITE
+                    return $this->processInviteStep($session, $text);
+
+                case "2":
+                    // Mode CLIENT
+                    return $this->processClientStep($session, $text);
+
+                case "3":
+                    // Mode CALCUL TAUX
+                    return $this->processRateCalculator($session,$text);
+
+                default:
+                    return $this->send($session->wa_id,
+                        "❌ *Option invalide.*\nRépondez uniquement par 1️⃣, 2️⃣ ou 3️⃣."
+                    );
+            }
+        }
+
 
         // DISPATCH AUTOMATIQUE DES ÉTAPES
-        return $this->processStep($session, $text);
+
     }
 
 
@@ -76,7 +115,7 @@ class WhatsappWebhookController extends Controller
      * @param $text
      * @return ResponseFactory
      */
-    private function processStep(WhatsappSession $session, $text)
+    private function processClientStep(WhatsappSession $session, $text)
     {
         $input = trim(strtolower((string)($text ?? '')));
         switch ($session->step) {
@@ -479,7 +518,8 @@ class WhatsappWebhookController extends Controller
                     );
                 }
 
-                $amount = (float) $text;
+                // Convertir le montant en float
+                $amount = floatval($text);
 
                 // Mise à jour du montant dans la session
                 $session->amount = $amount;
@@ -488,13 +528,14 @@ class WhatsappWebhookController extends Controller
                 $res_fees = Http::withToken($session->token)
                     ->get(config('whatsapp.wtc_url') . "v2/tauxechanges/{$session->countryId}")->json();
 
-                if (!isset($res_fees['data'])) {
+                // Vérification de la réponse de l'API
+                if (isset($res_fees['data'])) {
+                    $fees = $res_fees['data'];
+                } else {
                     return $this->send($session->wa_id,
                         "❌ *Erreur lors de la récupération des taux.*\nVeuillez réessayer."
                     );
                 }
-
-                $fees = $res_fees['data'];
 
                 // Calcul du taux
                 $resCalcul = $this->calculTaux(
@@ -511,17 +552,19 @@ class WhatsappWebhookController extends Controller
                     'step'        => 'preview'
                 ]);
 
-                // Récupérer quelques infos lisibles
-                $beneficiary = collect($session->beneficiaries)
-                    ->firstWhere('id', $session->beneficiaryId);
+                // Récupérer les informations lisibles (expéditeur, bénéficiaire, opérateur)
+                $beneficiary = collect($session->beneficiaries)->firstWhere('id', $session->beneficiaryId);
+                $sender = collect($session->senders)->firstWhere('id', $session->senderId);
+                $operator = collect($session->operators)->firstWhere('id', $session->operator_id);
 
-                $sender = collect($session->senders)
-                    ->firstWhere('id', $session->senderId);
+                // Vérifications si les données sont disponibles
+                if (!$beneficiary || !$sender || !$operator) {
+                    return $this->send($session->wa_id,
+                        "❌ *Erreur* : Impossible de trouver toutes les informations nécessaires pour le transfert."
+                    );
+                }
 
-                $operator = collect($session->operators)
-                    ->firstWhere('id', $session->operator_id);
-
-
+                // Prévisualisation de la transaction
                 return $this->send($session->wa_id,
                     "📄 *Prévisualisation de votre transfert :*\n\n" .
                     "🌍 *Mode* : {$session->transfer_mode}\n" .
@@ -538,28 +581,36 @@ class WhatsappWebhookController extends Controller
                     "➡️ *Montant final envoyé* : " . number_format($session->amount_send, 0, ',', ' ') . "\n\n"
                 );
 
-
-            // ----------------------
-            // 🔥 CONFIRM TRANSFER
-            // ----------------------
-
             case 'preview':
+                // Confirmer le transfert
                 $session->update([
-                    'step'        => 'send'
+                    'step' => 'send'
                 ]);
                 return $this->send($session->wa_id,
                     "Voulez-vous *confirmer* ? (oui / non)"
                 );
+
             case 'send':
                 if (strtolower($text) !== "oui") {
                     $session->update(['step' => 'start']);
                     return $this->send($session->wa_id, "❌ Transfert annulé.");
                 }
+                $res=$this->executeTransfer($session);
+                return $this->send($session->wa_id,$res['message']);
 
-                return $this->executeTransfer($session);
         }
     }
 
+    private function processInviteStep(WhatsappSession $session,$text){
+
+    }
+    private function processRateCalculator($session,$text)
+    {
+        $session->update(['step' => 'enter_amount_rate']);
+        return $this->send($session->wa_id,
+            "💱 *Calculateur de taux*\n\nEntrez un montant en XAF."
+        );
+    }
 
     /**
      * 🔥 Méthode pour envoyer un message WhatsApp Cloud API
@@ -608,38 +659,54 @@ class WhatsappWebhookController extends Controller
         ];
     }
 
-
     private function executeTransfer(WhatsappSession $session)
     {
-        $data =[
-        'customer_id' => $session->user_id,
-        'sender_id' => $session->senderId,
-        'beneficiary_id' => $session->beneficiaryId,
-        'amount' => $session->amount,
-        'rate' => $session->rate,
-        'acount_number' => $session->accountNumber,
-        'origin_fond' => $session->origin_fond,
-        'relaction' => $session->relaction,
-        'motif' => $session->motif,
-        'comment' => $session->comment,
-        'bank_name' => $session->operator_name,
-        'operator_id' => $session->operator_id,
-        'wallet' => "WACEPAY",
-        'type' => "B",
-        'country_id' =>$session-> countryId,
-        'city_id' => $session->city_id,
-        'swiftCode' => $session->swiftCode,
-        'ifscCode' => $session->swiftCode,
-        'total_amount' => $session->amount_send
-    ];
-        if ($session->transfer_mode=='mobile'){
-            $endpoint='mobile';
-        }else{
-            $endpoint='bank';
-        }
-        $res = Http::withToken($session->token)
-            ->post(config('whatsapp.wtc_url') . "v2/transferts/$endpoint",$data)->json();
-        return $res;
+        // Préparer les données
+        $data = [
+            'customer_id'    => $session->user_id,
+            'sender_id'      => $session->senderId,
+            'beneficiary_id' => $session->beneficiaryId,
+            'amount'         => $session->amount,
+            'rate'           => $session->fees ?? 0,
+            'account_number' => $session->accountNumber ?? null,
+            'origin_fond'    => $session->origin_fond,
+            'relaction'      => $session->relaction,
+            'motif'          => $session->motif,
+            'comment'        => $session->comment ?? null,
+            'bank_name'      => $session->operators['name'] ?? null,
+            'operator_id'    => $session->operator_id,
+            'wallet'         => "WACEPAY",
+            'type'           => "B",
+            'country_id'     => $session->countryId,
+            'city_id'        => $session->cityId ?? null,
+            'swiftCode'      => $session->swiftCode ?? null,
+            'ifscCode'       => $session->ifscCode ?? null,
+            'total_amount'   => $session->amount_send
+        ];
 
+        // Choix du endpoint selon le mode
+        $endpoint = ($session->transfer_mode === 'mobile') ? 'mobile' : 'bank';
+
+        // Appel API
+        $response = Http::withToken($session->token)
+            ->post(config('whatsapp.wtc_url') . "v2/transferts/$endpoint", $data);
+
+        // Vérifier succès
+        if ($response->failed()) {
+            logger("Erreur transfert : ", $response->json());
+            return [
+                'status'  => 'error',
+                'message' => 'Impossible de réaliser le transfert. Réessayez plus tard.'
+            ];
+        }
+
+        // Retour JSON de l’API
+        $res = $response->json();
+
+        // Mettre à jour la session
+        $session->update(['step' => 'completed']);
+
+        return $res;
     }
+
 }
