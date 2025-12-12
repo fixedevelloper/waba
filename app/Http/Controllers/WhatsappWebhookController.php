@@ -64,7 +64,7 @@ class WhatsappWebhookController extends Controller
                 'user_id' => null
             ]);
         }
-// 🎬 Étape 1 : Message de bienvenue
+
         if ($session->step == 'start') {
 
             $body = "👋 *Bienvenue sur Wetransfert Cash*\n\n"
@@ -75,29 +75,36 @@ class WhatsappWebhookController extends Controller
                 . "Répondez par *1*, *2* ou *3*.";
 
             $this->send($session->wa_id, $body);
-            $session->update(['step' => 'awaiting_init']);
+            $session->update([
+                'step' => 'awaiting_init',
+                'mode_step' => 'none',
+            ]);
             return;
         }
-
-// 🎬 Étape 2 : Traitement du choix initial
-        if ($session->step == 'awaiting_init') {
+        if ($session->step == 'awaiting_init' && $session->mode_step == 'none') {
 
             switch ($text) {
 
                 case "1":
-                    // Mode INVITE
-                    $session->update(['step' => 'awaiting_traitement']);
+                    $session->update([
+                        'step' => 'awaiting_traitement',
+                        'mode_step' => 'guess'
+                    ]);
                     return $this->processInviteStep($session, $text);
 
                 case "2":
-                    // Mode CLIENT
-                    $session->update(['step' => 'awaiting_traitement']);
+                    $session->update([
+                        'step' => 'awaiting_traitement',
+                        'mode_step' => 'customer'
+                    ]);
                     return $this->processClientStep($session, $text);
 
                 case "3":
-                    // Mode CALCUL TAUX
-                    $session->update(['step' => 'awaiting_traitement']);
-                    return $this->processRateCalculator($session,$text);
+                    $session->update([
+                        'step' => 'awaiting_traitement',
+                        'mode_step' => 'calcul_rate'
+                    ]);
+                    return $this->processRateCalculator($session, $text);
 
                 default:
                     return $this->send($session->wa_id,
@@ -105,6 +112,22 @@ class WhatsappWebhookController extends Controller
                     );
             }
         }
+        if ($session->mode_step == 'guess') {
+            return $this->processInviteStep($session, $text);
+
+        } elseif ($session->mode_step == 'customer') {
+            return $this->processClientStep($session, $text);
+
+        } elseif ($session->mode_step == 'calcul_rate') {
+            return $this->processRateCalculator($session, $text);
+        }
+
+// Si jamais un step non prévu arrive → fallback sécurité
+        return $this->send($session->wa_id,
+            "❌ Une erreur est survenue. Session réinitialisée."
+        );
+
+
 
 
         // DISPATCH AUTOMATIQUE DES ÉTAPES
