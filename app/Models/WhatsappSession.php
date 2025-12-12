@@ -34,14 +34,24 @@ class WhatsappSession extends Model
 
         'city',
         'cityId',
-
+        'beneficiaries',
+        'senders',
+        'relations',
+        'origins',
+        'motifs',
+        'operators',
         'operator_id',
-
+        'beneficiary_type',
+        'sender_type',
         'expires_at'
     ];
 
     protected $dates = [
         'expires_at'
+    ];
+    protected $casts = [
+        'senders' => 'array',
+        'beneficiaries' => 'array',
     ];
 
     // 🔥 Vérifie si la session a expiré (facultatif si tu veux auto-reset)

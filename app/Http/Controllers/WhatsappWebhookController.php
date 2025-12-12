@@ -78,7 +78,7 @@ class WhatsappWebhookController extends Controller
      */
     private function processStep(WhatsappSession $session, $text)
     {
-        $input = trim(strtolower((string) ($text ?? '')));
+        $input = trim(strtolower((string)($text ?? '')));
         switch ($session->step) {
 
             case 'start':
@@ -93,7 +93,7 @@ class WhatsappWebhookController extends Controller
                     return $this->send($session->wa_id, "Entrez votre *Email*.");
                 } elseif (str_contains($input, 'solde')) {
                     $session->update(['step' => 'start']);
-                    return  $this->send($session->wa_id, "Fonction Solde non implémentée (exemple).");
+                    return $this->send($session->wa_id, "Fonction Solde non implémentée (exemple).");
                 } else {
                     $this->send($session->wa_id, "Choix non reconnu. Tapez 'Transfert', 'Retrait' ou 'Solde'.");
                 }
@@ -104,26 +104,26 @@ class WhatsappWebhookController extends Controller
                 return $this->send($session->wa_id, "Entrez votre *mot de passe*.");
 
             case 'waiting_password':
-                $session->update(['password'=>$text,'step' => 'main_menu']);
+                $session->update(['password' => $text, 'step' => 'choose_mode']);
                 $res = WhatsappChatService::loginApi($session, $session->phone);
                 if (!isset($res['status']) || $res['status'] !== 'success') {
                     return;
                 }
                 $data = $res['data'];
-                $session->user_id     = $data['customer_id'];
-                $session->token       = $data['token'];
-                $session->step        = 'choose_mode'; // prochaine étape du flow
-                $session->expires_at  = now()->addMinutes(30); // expiration du token
+                $session->user_id = $data['customer_id'];
+                $session->token = $data['token'];
+                $session->step = 'choose_mode'; // prochaine étape du flow
+                $session->expires_at = now()->addMinutes(30); // expiration du token
                 $session->save();
 
-                return ;
+                return $this->send($session->wa_id, "Mode de transfert :\n1️⃣ Mobile Money\n2️⃣ Bank");
 
-            case 'main_menu':
-                if ($text == "1") {
-                    $session->update(['step' => 'choose_mode']);
-                    return $this->send($session->wa_id, "Mode de transfert :\n1️⃣ Mobile Money\n2️⃣ Bank");
-                }
-                return $this->send($session->wa_id, "Répondez par 1 ou 2.");
+            /*            case 'main_menu':
+                            if ($text == "1") {
+                                $session->update(['step' => 'choose_mode']);
+                                return $this->send($session->wa_id, "Mode de transfert :\n1️⃣ Mobile Money\n2️⃣ Bank");
+                            }
+                            return $this->send($session->wa_id, "Répondez par 1 ou 2.");*/
 
             case 'choose_mode':
                 $mode = $text == "1" ? "mobile" : "bank";
@@ -142,10 +142,10 @@ class WhatsappWebhookController extends Controller
                 $iso2 = strtoupper($text);
 
                 // API: Toutes les villes du pays
-                $cities = Http::withToken($session->token)
-                    ->get(env("API_TRANSFERT")."/countries/$iso2/cities");
+                $res = Http::withToken($session->token)
+                    ->get(config('whatsapp.wtc_url') . "/v2/cities/$iso2/code")->json();
 
-                if ($cities->failed()) {
+                if ($res->failed()) {
                     return $this->send($session->wa_id, "❌ Code pays invalide. Réessayez.");
                 }
 
@@ -153,9 +153,9 @@ class WhatsappWebhookController extends Controller
                     'country' => $iso2,
                     'step' => 'select_city'
                 ]);
-
+                $data = $res['data'];
                 $list = "";
-                foreach ($cities->json() as $city) {
+                foreach ($data as $city) {
                     $list .= "{$city['id']}. {$city['name']}\n";
                 }
 
@@ -169,20 +169,22 @@ class WhatsappWebhookController extends Controller
             // ----------------------
 
             case 'select_city':
-                $session->update([
-                    'cityId' => $text,
-                    'step' => 'select_sender'
-                ]);
+
 
                 // Récupérer expéditeurs
-                $senders = Http::withToken($session->token)
-                    ->get(env("API_TRANSFERT")."/senders?user_id={$session->user_id}");
-
+                $res_senders = Http::withToken($session->token)
+                    ->get(config('whatsapp.wtc_url') . "v2/all_senders/{$session->user_id}")->json();
+                $senders = $res_senders['data'];
                 $list = "";
-                foreach ($senders->json() as $s) {
+                foreach ($senders as $s) {
                     $list .= "{$s['id']}. {$s['firstname']} {$s['lastname']}\n";
                 }
 
+                $session->update([
+                    'cityId' => $text,
+                    'senders'=>$senders,
+                    'step' => 'select_sender'
+                ]);
                 return $this->send($session->wa_id,
                     "👤 *Choisissez l’expéditeur :*\n\n$list\n\nEntrez l’ID."
                 );
@@ -193,23 +195,44 @@ class WhatsappWebhookController extends Controller
             // ----------------------
 
             case 'select_sender':
-                $session->update([
-                    'senderId' => $text,
-                    'step' => 'select_beneficiary'
-                ]);
 
-                // Récupérer bénéficiaires
-                $benef = Http::withToken($session->token)
-                    ->get(env("API_TRANSFERT")."/beneficiaries?user_id={$session->user_id}");
+                // Récupérer les bénéficiaires via API
+                $resp_benef = Http::withToken($session->token)
+                    ->get(config('whatsapp.wtc_url') . "v2/all_beneficiaries/{$session->user_id}")
+                    ->json();
 
+                $benef = $resp_benef['data'] ?? [];
+
+                // Liste des bénéficiaires (affichage)
                 $list = "";
-                foreach ($benef->json() as $b) {
+                foreach ($benef as $b) {
                     $list .= "{$b['id']}. {$b['firstname']} {$b['lastname']}\n";
                 }
 
-                return $this->send($session->wa_id,
+                // Trouver l'expéditeur choisi
+                $selectedSender = collect($session->senders)
+                    ->firstWhere('id', $text);
+
+                if (!$selectedSender) {
+                    return $this->send(
+                        $session->wa_id,
+                        "❌ *Expéditeur introuvable.*\nVeuillez entrer un ID valide."
+                    );
+                }
+
+                // Mise à jour de la session
+                $session->update([
+                    'senderId' => $selectedSender['id'],
+                    'sender_type' => $selectedSender['type'],
+                    'beneficiaries' => $benef,   // stocké en JSON automatique
+                    'step' => 'select_beneficiary'
+                ]);
+
+                return $this->send(
+                    $session->wa_id,
                     "🧍 *Choisissez le bénéficiaire :*\n\n$list\n\nEntrez l’ID."
                 );
+
 
 
             // ----------------------
@@ -217,109 +240,285 @@ class WhatsappWebhookController extends Controller
             // ----------------------
 
             case 'select_beneficiary':
+
+                // 🔍 1) Trouver le bénéficiaire choisi
+                $selectedBeneficiary = collect($session->beneficiaries)
+                    ->firstWhere('id', $text);
+
+                if (!$selectedBeneficiary) {
+                    return $this->send(
+                        $session->wa_id,
+                        "❌ *Bénéficiaire introuvable.*\nVeuillez entrer un ID valide."
+                    );
+                }
+
+                // Récupération des types
+                $beneficiaryType = $selectedBeneficiary['type'];
+                $senderType = $session->sender_type;
+
+                // 🔍 2) Récup relations dépendants des types
+                $resp_relations = Http::withToken($session->token)
+                    ->get(
+                    config('whatsapp.wtc_url') .
+                    "v2/wace_data?sender_type={$senderType}&beneficiary_type={$beneficiaryType}&service=relaction"
+                )->json();
+
+                $relations = $resp_relations['data'] ?? [];
+
+                // Construction de la liste
+                $list = "";
+                foreach ($relations as $r) {
+                    $list .= "{$r['id']}. {$r['name']}\n";
+                }
+
+                // 🔍 3) Mise à jour session
                 $session->update([
-                    'beneficiaryId' => $text,
+                    'beneficiaryId' => $selectedBeneficiary['id'],
+                    'beneficiary_type' => $beneficiaryType,
+                    'relations' => $relations,
                     'step' => 'select_relaction'
                 ]);
 
-                // Récup relations
-                $relations = Http::get(env("API_TRANSFERT")."/relations")->json();
-
-                $list = "";
-                foreach ($relations as $r) {
-                    $list .= "{$r['code']}. {$r['label']}\n";
-                }
-
-                return $this->send($session->wa_id,
-                    "❤️ *Relation avec le bénéficiaire :*\n\n$list\n\nEntrez le code."
+                return $this->send(
+                    $session->wa_id,
+                    "❤️ *Relation avec le bénéficiaire :*\n\n$list\n\nEntrez le numéro."
                 );
 
-
             case 'select_relaction':
+
+                // Vérifier relation choisie
+                $selectedRelation = collect($session->relations)->firstWhere('id', $text);
+                if (!$selectedRelation) {
+                    return $this->send($session->wa_id,
+                        "❌ *Relation invalide.*\nVeuillez entrer un ID valide."
+                    );
+                }
+
                 $session->update([
-                    'relaction' => $text,
+                    'relaction' => $selectedRelation['id'],
                     'step' => 'select_origin_fond'
                 ]);
 
-                // Origine de fonds
-                $origins = Http::get(env("API_TRANSFERT")."/origins")->json();
+                // Appel API (URL corrigée)
+                $url = config('whatsapp.wtc_url')
+                    . "v2/wace_data?sender_type={$session->sender_type}"
+                    . "&beneficiary_type={$session->beneficiary_type}"
+                    . "&service=origin_fonds";
+
+                $resp_origin = Http::withToken($session->token)
+                    ->get($url)->json();
+                $origins = $resp_origin['data'] ?? [];
 
                 $list = "";
                 foreach ($origins as $o) {
-                    $list .= "{$o['code']}. {$o['label']}\n";
+                    $list .= "{$o['id']}. {$o['name']}\n";
                 }
 
+                $session->update([
+                    'origins' => $origins
+                ]);
+
                 return $this->send($session->wa_id,
-                    "💵 *Origine des fonds :*\n\n$list\n\nEntrez le code."
+                    "💵 *Origine des fonds :*\n\n$list\n\nEntrez le numéro."
                 );
+
 
 
             case 'select_origin_fond':
+
+                // Vérifier origin valide
+                $selectedOrigin = collect($session->origins)->firstWhere('id', $text);
+                if (!$selectedOrigin) {
+                    return $this->send($session->wa_id,
+                        "❌ *Origine invalide.*\nVeuillez entrer un ID valide."
+                    );
+                }
+
                 $session->update([
-                    'origin_fond' => $text,
+                    'origin_fond' => $selectedOrigin['id'],
                     'step' => 'select_motif'
                 ]);
 
-                // Motifs
-                $motifs = Http::get(env("API_TRANSFERT")."/motifs")->json();
+                // API Motifs
+                $url = config('whatsapp.wtc_url')
+                    . "v2/wace_data?sender_type={$session->sender_type}"
+                    . "&beneficiary_type={$session->beneficiary_type}"
+                    . "&service=raison";
+
+                $resp_motif = Http::withToken($session->token)
+                    ->get($url)->json();
+                $motifs = $resp_motif['data'] ?? [];
 
                 $list = "";
                 foreach ($motifs as $m) {
-                    $list .= "{$m['code']}. {$m['label']}\n";
+                    $list .= "{$m['id']}. {$m['name']}\n";
                 }
 
+                $session->update([
+                    'motifs' => $motifs
+                ]);
+
                 return $this->send($session->wa_id,
-                    "📝 *Motif du transfert :*\n\n$list\n\nEntrez le code."
+                    "📝 *Motif du transfert :*\n\n$list\n\nEntrez le numéro."
                 );
 
 
+
             case 'select_motif':
+
+                $selectedMotif = collect($session->motifs)->firstWhere('id', $text);
+                if (!$selectedMotif) {
+                    return $this->send($session->wa_id,
+                        "❌ *Motif invalide.*\nVeuillez entrer un ID valide."
+                    );
+                }
+
                 $session->update([
-                    'motif' => $text,
-                    'step' => 'enter_amount'
+                    'motif' => $selectedMotif['id'],
+                    'step' => 'select_operator'
                 ]);
 
+                // ⚠ Correction du bug "=" → "==="
+                $isMobile = ($session->transfer_mode === "mobile" || $session->transfer_mode == 1);
+
+                $endpoint = $isMobile ? "operatorslists" : "banklists";
+
+                $resp_operators = Http::withToken($session->token)
+                    ->get(
+                    config('whatsapp.wtc_url') . "v2/$endpoint/{$session->country_id}"
+                )->json();
+
+                $operators = $resp_operators['data'] ?? [];
+
+                $list = "";
+                foreach ($operators as $op) {
+                    $list .= "{$op['id']}. {$op['name']}\n";
+                }
+
+                $session->update([
+                    'operators' => $operators
+                ]);
+
+                return $this->send($session->wa_id,
+                    "🏦 *Choisissez un opérateur / banque :*\n\n$list\n\nEntrez le numéro."
+                );
+
+
+            case 'select_operator':
+
+                // Vérifier que l'utilisateur a entré un chiffre
+                if (!ctype_digit($text)) {
+                    return $this->send($session->wa_id,
+                        "❌ Veuillez entrer un *numéro valide* correspondant à un opérateur."
+                    );
+                }
+
+                $operatorId = (int) $text;
+
+                // Récupérer la liste des opérateurs stockés
+                $operators = collect($session->operators);
+
+                // Vérifier si l'opérateur existe dans la liste
+                $selectedOperator = $operators->firstWhere('id', $operatorId);
+
+                if (!$selectedOperator) {
+                    return $this->send($session->wa_id,
+                        "❌ Aucun opérateur ne correspond à ce numéro.\nVeuillez réessayer."
+                    );
+                }
+
+                // Mise à jour de la session
+                $session->update([
+                    'operator_id' => $operatorId,
+                    'step' => 'enter_account_number'
+                ]);
+
+                return $this->send($session->wa_id,
+                    "💰 Entrez le *numero de compe* ."
+                );
+
+
+            case 'enter_account_number':
+                $session->update([
+                    'accountNumber' => $text,
+                    'step' => 'enter_amount'
+                ]);
                 return $this->send($session->wa_id,
                     "💰 Entrez le *montant* du transfert."
                 );
 
-
-            // ----------------------
-            // 🔥 MONTANT + FRAIS
-            // ----------------------
-
+                // ----------------------
+                // 🔥 MONTANT + FRAIS
+                // ----------------------
             case 'enter_amount':
-                $session->update(['amount' => $text]);
 
-                // API frais
-                $fees = Http::withToken($session->token)->post(
-                    env("API_TRANSFERT")."/fees",
-                    [
-                        "amount"  => $session->amount,
-                        "country" => $session->country,
-                        "mode"    => $session->transfer_mode
-                    ]
-                )->json();
+                // Vérifier que le montant est un nombre valide
+                if (!is_numeric($text) || $text <= 0) {
+                    return $this->send($session->wa_id,
+                        "❌ *Montant invalide.*\nVeuillez entrer un montant correct."
+                    );
+                }
 
-                $session->fees = $fees["fees"] ?? 0;
+                $amount = (float) $text;
 
-                $session->step = "preview";
-                $session->save();
+                // Mise à jour du montant dans la session
+                $session->amount = $amount;
+
+                // Appel API des taux
+                $res_fees = Http::withToken($session->token)
+                    ->get(config('whatsapp.wtc_url') . "v2/tauxechanges/{$session->country_id}")->json();
+
+                if (!isset($res_fees['data'])) {
+                    return $this->send($session->wa_id,
+                        "❌ *Erreur lors de la récupération des taux.*\nVeuillez réessayer."
+                    );
+                }
+
+                $fees = $res_fees['data'];
+
+                // Calcul du taux
+                $resCalcul = $this->calculTaux(
+                    $amount,
+                    $fees['taux_xaf_usd'] ?? 0,
+                    $fees['taux_country'] ?? 0,
+                    $fees['rate'] ?? 0
+                );
+
+                // Sauvegarde du résultat
+                $session->update([
+                    'fees'        => $resCalcul['rate'],
+                    'amount_send' => $resCalcul['amount_send'],
+                    'step'        => 'preview'
+                ]);
+
+                // Récupérer quelques infos lisibles
+                $beneficiary = collect($session->beneficiaries)
+                    ->firstWhere('id', $session->beneficiaryId);
+
+                $sender = collect($session->senders)
+                    ->firstWhere('id', $session->senderId);
+
+                $operator = collect($session->operators)
+                    ->firstWhere('id', $session->operator_id);
+
 
                 return $this->send($session->wa_id,
-                    "📄 *Prévisualisation :*\n\n".
-                    "Mode : {$session->transfer_mode}\n".
-                    "Pays : {$session->country}\n".
-                    "Ville ID : {$session->cityId}\n".
-                    "Expéditeur ID : {$session->senderId}\n".
-                    "Bénéficiaire ID : {$session->beneficiaryId}\n".
-                    "Relation : {$session->relaction}\n".
-                    "Origine funds : {$session->origin_fond}\n".
-                    "Motif : {$session->motif}\n".
-                    "Montant : {$session->amount}\n".
-                    "Frais : {$session->fees}\n\n".
-                    "Confirmer ? (oui / non)"
+                    "📄 *Prévisualisation de votre transfert :*\n\n" .
+                    "🌍 *Mode* : {$session->transfer_mode}\n" .
+                    "🇨🇲 *Pays* : {$session->country}\n" .
+                    "🏙️ *Ville ID* : {$session->cityId}\n\n" .
+                    "🧑‍💼 *Expéditeur* : {$sender['firstname']} {$sender['lastname']}\n" .
+                    "👤 *Bénéficiaire* : {$beneficiary['firstname']} {$beneficiary['lastname']}\n" .
+                    "❤️ *Relation* : {$session->relaction}\n" .
+                    "💵 *Origine des fonds* : {$session->origin_fond}\n" .
+                    "📝 *Motif* : {$session->motif}\n" .
+                    "🏦 *Opérateur* : {$operator['name']}\n\n" .
+                    "💰 *Montant envoyé* : " . number_format($session->amount, 0, ',', ' ') . " XAF\n" .
+                    "💸 *Frais* : " . number_format($session->fees, 0, ',', ' ') . " XAF\n" .
+                    "➡️ *Montant final envoyé* : " . number_format($session->amount_send, 0, ',', ' ') . "\n\n" .
+                    "Voulez-vous *confirmer* ? (oui / non)"
                 );
+
 
 
             // ----------------------
@@ -346,16 +545,76 @@ class WhatsappWebhookController extends Controller
     private function send($to, $text)
     {
         $token = app(WhatsappTokenService::class)->getToken();
-      $res=  Http::timeout(30) // 30 secondes au lieu de 10
+        $res = Http::timeout(30) // 30 secondes au lieu de 10
         ->withToken($token)->post(
-            "https://graph.facebook.com/v19.0/".config('whatsapp.phone_number_id')."/messages",
+            "https://graph.facebook.com/v19.0/" . config('whatsapp.phone_number_id') . "/messages",
             [
                 "messaging_product" => "whatsapp",
                 "to" => $to,
                 "text" => ["body" => $text]
             ]
         )->json();
-Log::error('send_whassap',$res);
+        Log::error('send_whassap', $res);
         return response('OK', 200);
+    }
+
+    private function calculTaux(float $amount, float $tauxXafUsd, float $tauxCountry, float $ratePercent): array
+    {
+        // Sécurité : impossible de diviser par zéro
+        if ($amount <= 0 || $tauxXafUsd <= 0 || $tauxCountry <= 0) {
+            return [
+                'rate' => 0.0,
+                'amount_send' => 0.0
+            ];
+        }
+
+        // Convertir montant en USD → montant * 1 / taux
+        $amountUsd = $amount / $tauxXafUsd;
+
+        // Convertir USD vers la monnaie du pays
+        $amountCountry = $amountUsd * $tauxCountry;
+
+        // Frais : pourcentage du montant XAF
+        $fees = ($ratePercent / 100) * $amount;
+
+        return [
+            'rate' => round($fees, 2),
+            'amount_send' => round($amountCountry, 2)
+        ];
+    }
+
+
+    private function executeTransfer(WhatsappSession $session)
+    {
+        $data =[
+        'customer_id' => $session->user_id,
+        'sender_id' => $session->senderId,
+        'beneficiary_id' => $session->beneficiaryId,
+        'amount' => $session->amount,
+        'rate' => $session->rate,
+        'acount_number' => $session->accountNumber,
+        'origin_fond' => $session->origin_fond,
+        'relaction' => $session->relaction,
+        'motif' => $session->motif,
+        'comment' => $session->comment,
+        'bank_name' => $session->operator_name,
+        'operator_id' => $session->operator_id,
+        'wallet' => "WACEPAY",
+        'type' => "B",
+        'country_id' =>$session-> country_id,
+        'city_id' => $session->city_id,
+        'swiftCode' => $session->swiftCode,
+        'ifscCode' => $session->swiftCode,
+        'total_amount' => $session->amount_send
+    ];
+        if ($session->transfer_mode==1){
+            $endpoint='mobile';
+        }else{
+            $endpoint='bank';
+        }
+        $res = Http::withToken($session->token)
+            ->post(config('whatsapp.wtc_url') . "v2/transferts/$endpoint",$data)->json();
+        return $res;
+
     }
 }

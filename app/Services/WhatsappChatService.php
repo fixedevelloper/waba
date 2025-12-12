@@ -25,9 +25,18 @@ class WhatsappChatService
         $body = "Bienvenue sur MonService 👋\nChoisissez :\n- Transfert\n- Retrait\n- Solde\nRépondez par le mot correspondant.";
         return self::sendText($to, $body);
     }
+
     public static function loginApi(WhatsappSession $whatsappSession,$email){
         $payload = [
             'email' => $email,
+            'password' => $whatsappSession->password
+        ];
+        return Http::timeout(30) // 30 secondes au lieu de 10
+        ->post(config('whatsapp.wtc_url').'auth/logincustomer', $payload)->json();
+    }
+    public static function getCities(WhatsappSession $whatsappSession,$codeIso){
+        $payload = [
+            'email' => $codeIso,
             'password' => $whatsappSession->password
         ];
         return Http::timeout(30) // 30 secondes au lieu de 10

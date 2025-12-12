@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\WhatsappSession;
 use App\Services\WhatsappChatService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Http;
 
 class ApiServiceText extends Command
 {
@@ -33,7 +34,7 @@ class ApiServiceText extends Command
             return;
         }
 
-        $email = 'rodriguembah13@gmail.com';
+/*        $email = 'rodriguembah13@gmail.com';
         $res = WhatsappChatService::loginApi($session, $email);
 
         logger($res);
@@ -51,8 +52,17 @@ class ApiServiceText extends Command
         $session->token       = $data['token'];
         $session->step        = 'choose_mode'; // prochaine étape du flow
         $session->expires_at  = now()->addMinutes(30); // expiration du token
-        $session->save();
+        $session->save();*/
+        $resp_benef = Http::withToken($session->token)
+            ->get(config('whatsapp.wtc_url') . "v2/all_beneficiaries/{$session->user_id}")->json();
+        $benef = $resp_benef['data'];
 
+        $text=620;
+       $des= array_filter($session->senders,function ($item)use($text){
+            if ($item->id=$text){
+                return $item->type;
+            }
+        }); logger($des);
         logger("Session mise à jour avec succès");
     }
 
