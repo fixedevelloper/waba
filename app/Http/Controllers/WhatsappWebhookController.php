@@ -434,9 +434,9 @@ class WhatsappWebhookController extends Controller
                 }
 
                 $operatorId = (int) $text;
-
+                $resoperators = json_decode($session->operators, true);
                 // Récupérer la liste des opérateurs stockés
-                $operators = collect($session->operators);
+                $operators = collect($resoperators);
 
                 // Vérifier si l'opérateur existe dans la liste
                 $selectedOperator = $operators->firstWhere('id', $operatorId);
