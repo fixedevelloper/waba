@@ -43,6 +43,7 @@ class WhatsappSession extends Model
         'operator_id',
         'beneficiary_type',
         'sender_type',
+        'mode_step',
         'expires_at'
     ];
 
