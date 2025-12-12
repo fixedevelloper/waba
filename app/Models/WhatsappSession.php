@@ -50,6 +50,7 @@ class WhatsappSession extends Model
         'expires_at'
     ];
     protected $casts = [
+        'expires_at'=>'datetime',
         'senders' => 'array',
         'beneficiaries' => 'array',
     ];

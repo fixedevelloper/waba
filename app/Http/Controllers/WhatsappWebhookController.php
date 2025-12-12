@@ -57,7 +57,7 @@ class WhatsappWebhookController extends Controller
         );
 
         // Si session expirée → reset
-        if ($session->isExpired()) {
+        if ($session->isExpired() || $text=='cancel') {
             $session->update([
                 'step' => 'start',
                 'token' => null,
@@ -162,7 +162,7 @@ class WhatsappWebhookController extends Controller
                 $country_id=$data[0]['country_id'];
                 $session->update([
                     'country' => $iso2,
-                    'country_id' => $country_id,
+                    'countryId' => $country_id,
                     'step' => 'select_city'
                 ]);
                 return $this->send($session->wa_id,
