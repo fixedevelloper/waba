@@ -53,12 +53,16 @@ class ApiServiceText extends Command
         $session->step        = 'choose_mode'; // prochaine étape du flow
         $session->expires_at  = now()->addMinutes(30); // expiration du token
         $session->save();*/
-        $text=209;
-        $selectedRelation = collect($session->relations)
-            ->firstWhere('id', (int)$text);
-        $relations = json_decode($session->relations, true);
+        // ⚠ Correction du bug "=" → "==="
+        $isMobile = ($session->transfer_mode === "mobile" || $session->transfer_mode == 1);
 
-        logger(collect($relations)->firstWhere('id',$text));
+        $endpoint = $isMobile ? "operatorslists" : "banklists";
+logger($session->countryId);
+        $resp_operators = Http::withToken($session->token)
+            ->get(
+                config('whatsapp.wtc_url') . "v2/$endpoint/{$session->countryId}"
+            )->json();
+        logger($resp_operators);
         logger("Session mise à jour avec succès");
     }
 

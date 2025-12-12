@@ -118,12 +118,6 @@ class WhatsappWebhookController extends Controller
 
                 return $this->send($session->wa_id, "Mode de transfert :\n1️⃣ Mobile Money\n2️⃣ Bank");
 
-            /*            case 'main_menu':
-                            if ($text == "1") {
-                                $session->update(['step' => 'choose_mode']);
-                                return $this->send($session->wa_id, "Mode de transfert :\n1️⃣ Mobile Money\n2️⃣ Bank");
-                            }
-                            return $this->send($session->wa_id, "Répondez par 1 ou 2.");*/
 
             case 'choose_mode':
                 $mode = $text == "1" ? "mobile" : "bank";
@@ -411,7 +405,7 @@ class WhatsappWebhookController extends Controller
 
                 $resp_operators = Http::withToken($session->token)
                     ->get(
-                    config('whatsapp.wtc_url') . "v2/$endpoint/{$session->country_id}"
+                    config('whatsapp.wtc_url') . "v2/$endpoint/{$session->countryId}"
                 )->json();
 
                 $operators = $resp_operators['data'] ?? [];
@@ -492,7 +486,7 @@ class WhatsappWebhookController extends Controller
 
                 // Appel API des taux
                 $res_fees = Http::withToken($session->token)
-                    ->get(config('whatsapp.wtc_url') . "v2/tauxechanges/{$session->country_id}")->json();
+                    ->get(config('whatsapp.wtc_url') . "v2/tauxechanges/{$session->countryId}")->json();
 
                 if (!isset($res_fees['data'])) {
                     return $this->send($session->wa_id,
@@ -627,7 +621,7 @@ class WhatsappWebhookController extends Controller
         'operator_id' => $session->operator_id,
         'wallet' => "WACEPAY",
         'type' => "B",
-        'country_id' =>$session-> country_id,
+        'country_id' =>$session-> countryId,
         'city_id' => $session->city_id,
         'swiftCode' => $session->swiftCode,
         'ifscCode' => $session->swiftCode,
