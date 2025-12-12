@@ -181,8 +181,16 @@ class WhatsappWebhookController extends Controller
                 $senders = $res_senders['data'];
                 $list = "";
                 foreach ($senders as $s) {
-                    $list .= "{$s['id']}. {$s['first_name']} {$s['last_name']}\n";
+                    $firstName = isset($s['first_name']) ? $s['first_name'] : '';
+                    $lastName  = isset($s['last_name']) ? $s['last_name'] : '';
+                    $id        = isset($s['id']) ? $s['id'] : '';
+
+                    // N'afficher que si l'ID existe
+                    if ($id !== '') {
+                        $list .= "{$id}. {$firstName} {$lastName}\n";
+                    }
                 }
+
 
                 $session->update([
                     'cityId' => $text,
@@ -209,9 +217,17 @@ class WhatsappWebhookController extends Controller
 
                 // Liste des bénéficiaires (affichage)
                 $list = "";
-                foreach ($benef as $b) {
-                    $list .= "{$b['id']}. {$b['first_name']} {$b['last_name']}\n";
+                foreach ($benef as $s) {
+                    $firstName = isset($s['first_name']) ? $s['first_name'] : '';
+                    $lastName  = isset($s['last_name']) ? $s['last_name'] : '';
+                    $id        = isset($s['id']) ? $s['id'] : '';
+
+                    // N'afficher que si l'ID existe
+                    if ($id !== '') {
+                        $list .= "{$id}. {$firstName} {$lastName}\n";
+                    }
                 }
+
 
                 // Trouver l'expéditeur choisi
                 $selectedSender = collect($session->senders)

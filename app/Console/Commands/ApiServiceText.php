@@ -53,11 +53,15 @@ class ApiServiceText extends Command
         $session->step        = 'choose_mode'; // prochaine étape du flow
         $session->expires_at  = now()->addMinutes(30); // expiration du token
         $session->save();*/
-        $cities = Http::withToken($session->token)
-            ->get(config('whatsapp.wtc_url')."v2/cities/CM/codeiso");
-        $response = Http::withToken($session->token)
-            ->get(config('whatsapp.wtc_url') . "/v2/cities/$iso2/code");
-        logger($cities);
+        $res_senders = Http::withToken($session->token)
+            ->get(config('whatsapp.wtc_url') . "v2/all_senders/{$session->user_id}")->json();
+        $senders = $res_senders['data'];
+        $list = "";
+        foreach ($senders as $s) {
+            logger($s['first_name']);
+            $list .= "{$s['id']}. {$s['first_name']} {$s['last_name']}\n";
+        }
+        logger($list);
         logger("Session mise à jour avec succès");
     }
 
