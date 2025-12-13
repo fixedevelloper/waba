@@ -57,7 +57,7 @@ class WhatsappWebhookController extends Controller
         );
 
         // Si session expirée → reset
-        if ($session->isExpired() || $text=='cancel') {
+        if ($session->isExpired() || $text=='cancel'|| $text=='menu') {
             $session->update([
                 'step' => 'start',
                 'token' => null,
@@ -147,7 +147,7 @@ class WhatsappWebhookController extends Controller
         switch ($session->step) {
 
             case 'awaiting_traitement':
-                $body = "Bienvenue sur Wetransfert cash 👋\nChoisissez :\n- Transfert\n- Retrait\n- Solde\nRépondez par le mot correspondant.";
+                $body = "👋\nChoisissez :\n- Transfert\n- Retrait\n- Solde\nRépondez par le mot correspondant.";
                 $this->send($session->wa_id, $body);
                 $session->update(['step' => 'awaiting_choice']);
                 break;
@@ -627,9 +627,153 @@ class WhatsappWebhookController extends Controller
         }
     }
 
-    private function processInviteStep(WhatsappSession $session,$text){
+    private function processInviteStep(WhatsappSession $session, $text)
+    {
+        $text = trim($text);
 
+        switch ($session->step) {
+
+            // ----------------------
+            // CHOIX DU MODE
+            // ----------------------
+            case 'awaiting_traitement':
+
+                $session->update(['step' => 'choose_mode']);
+
+                return $this->send($session->wa_id,
+                    "Mode de transfert :\n"
+                    . "1️⃣ Mobile Money\n"
+                    . "2️⃣ Bank"
+                );
+
+            case 'choose_mode':
+
+                if (!in_array($text, ['1', '2'])) {
+                    return $this->send($session->wa_id,
+                        "❌ Choix invalide.\nRépondez par 1️⃣ ou 2️⃣."
+                    );
+                }
+
+                $mode = $text === "1" ? "mobile" : "bank";
+
+                $session->update([
+                    'transfer_mode' => $mode,
+                    'step' => 'enter_country'
+                ]);
+
+                return $this->send($session->wa_id,
+                    "🌍 Entrez le *code ISO2* du pays (ex : CM, CI, SN)."
+                );
+
+            // ----------------------
+            // CHOIX DU PAYS
+            // ----------------------
+            case 'enter_country':
+
+                $iso2 = strtoupper($text);
+
+                $response = Http::get(
+                    config('whatsapp.wtc_url') . "api/cities/$iso2/codeiso"
+                );
+
+                if ($response->failed()) {
+                    return $this->send($session->wa_id,
+                        "❌ Code pays invalide. Réessayez."
+                    );
+                }
+
+                $res = $response->json();
+
+                if (!isset($res['data']) || empty($res['data'])) {
+                    return $this->send($session->wa_id,
+                        "❌ Aucun résultat pour ce pays."
+                    );
+                }
+
+                $cities = $res['data'];
+                $countryId = $cities[0]['country_id'] ?? null;
+
+                $list = "";
+                foreach ($cities as $city) {
+                    $list .= "{$city['id']}. {$city['name']}\n";
+                }
+
+                $session->update([
+                    'country'   => $iso2,
+                    'countryId' => $countryId,
+                    'cities'    => $cities,
+                    'step'      => 'select_city'
+                ]);
+
+                return $this->send($session->wa_id,
+                    "📍 *Villes disponibles :*\n\n$list\n\nEntrez l’ID de la ville."
+                );
+
+            // ----------------------
+            // CHOIX VILLE
+            // ----------------------
+            case 'select_city':
+
+                $city = collect($session->cities)
+                    ->firstWhere('id', (int)$text);
+
+                if (!$city) {
+                    return $this->send($session->wa_id,
+                        "❌ Ville invalide. Entrez un ID valide."
+                    );
+                }
+
+                $session->update([
+                    'cityId' => $city['id'],
+                    'step'   => 'guess_enter_sender'
+                ]);
+
+                return $this->send($session->wa_id,
+                    "👤 *Informations Expéditeur*\n\n"
+                    . "Format obligatoire :\n"
+                    . "Nom;Prénom;CodePays;Email;Téléphone;Adresse;Profession;DateNaissance(YYYY-MM-DD);Sexe(M/F);Civilité;TypePièce;NuméroPièce;DateExpiration"
+                );
+
+            // ----------------------
+            // SAISIE EXPÉDITEUR
+            // ----------------------
+            case 'guess_enter_sender':
+
+                $parts = array_map('trim', explode(';', $text));
+
+                if (count($parts) < 13) {
+                    return $this->send($session->wa_id,
+                        "❌ Format invalide.\nVeuillez respecter exactement le format demandé."
+                    );
+                }
+
+                $senderData = [
+                    'first_name' => $parts[0],
+                    'last_name'  => $parts[1],
+                    'country'    => $parts[2],
+                    'email'      => $parts[3],
+                    'phone'      => $parts[4],
+                    'address'    => $parts[5],
+                    'occupation' => $parts[6],
+                    'birth_date' => $parts[7],
+                    'gender'     => $parts[8],
+                    'civility'   => $parts[9],
+                    'id_type'    => $parts[10],
+                    'id_number'  => $parts[11],
+                    'id_expiry'  => $parts[12],
+                ];
+
+                $session->update([
+                    'sender' => $senderData,
+                    'step'   => 'guess_enter_beneficiary'
+                ]);
+
+                return $this->send($session->wa_id,
+                    "👥 *Entrez maintenant les informations du bénéficiaire* (même format)."
+                );
+        }
     }
+
     private function processRateCalculator($session, $text)
     {
         switch ($session->step) {
@@ -645,7 +789,7 @@ class WhatsappWebhookController extends Controller
 
                 // API pour vérifier le pays via la route cities/<iso>/code (existe déjà dans ton système)
                 $res = Http::withToken($session->token)
-                    ->get(config('whatsapp.wtc_url') . "v2/cities/$iso2/code");
+                    ->get(config('whatsapp.wtc_url') . "api/cities/$iso2/codeiso");
 
                 // Si l’API retourne une erreur, pays invalide
                 if ($res->failed()) {
@@ -653,10 +797,11 @@ class WhatsappWebhookController extends Controller
                         "❌ *Code pays invalide.*\nVeuillez entrer un code comme: CI, SN, BE, FR, US."
                     );
                 }
-
+                $data=$res['data'];
+                $country_id=$data[0]['country_id'];
                 // Pays valide
                 $session->update([
-                    'rate_country' => $iso2,
+                    'countryId' => $country_id,
                     'step'         => 'enter_amount_rate'
                 ]);
 
@@ -674,9 +819,9 @@ class WhatsappWebhookController extends Controller
                 $amount = (float) $text;
 
                 // Appel API taux
-                $countryIso = $session->rate_country;
+                $countryIso = $session->countryId;
 
-                $resFees = Http::get(config('whatsapp.wtc_url') . "v2/tauxechanges/$countryIso");
+                $resFees = Http::get(config('whatsapp.wtc_url') . "api/tauxechanges/$countryIso");
 
                 if ($resFees->failed()) {
                     return $this->send($session->wa_id,
@@ -710,8 +855,6 @@ class WhatsappWebhookController extends Controller
                 );
 
         }
-
-
 
     }
 

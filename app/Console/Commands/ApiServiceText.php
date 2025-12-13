@@ -61,10 +61,9 @@ class ApiServiceText extends Command
         $session->amount = $amount;
 
         // Appel API des taux
-        $res_fees = Http::withToken($session->token)
-            ->get(config('whatsapp.wtc_url') . "v2/tauxechanges/{$session->countryId}")->json();
+        $resFees = Http::get(config('whatsapp.wtc_url') . "api/tauxechanges/1");
 
-        logger($res_fees);
+        logger($resFees);
         logger("Session mise à jour avec succès");
     }
 
