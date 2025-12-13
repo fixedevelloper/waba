@@ -731,7 +731,7 @@ class WhatsappWebhookController extends Controller
                 return $this->send($session->wa_id,
                     "👤 *Informations Expéditeur*\n\n"
                     . "Format obligatoire :\n"
-                    . "Nom;\nPrénom;\nCodePays;\nEmail;\nTéléphone;\nAdresse;\nProfession;\nDateNaissance(YYYY-MM-DD);\nSexe(M/F);\nCivilité;\nTypePièce;\nNuméroPièce;\nDateExpiration"
+                    . "1-Nom;\nPrénom;\nCodePays;\nEmail;\nTéléphone;\nAdresse;\nProfession;\nDateNaissance(YYYY-MM-DD);\nSexe(M/F);\nCivilité;\nTypePièce;\nNuméroPièce;\nDateExpiration"
                 );
 
             // ----------------------
@@ -771,6 +771,159 @@ class WhatsappWebhookController extends Controller
                 return $this->send($session->wa_id,
                     "👥 *Entrez maintenant les informations du bénéficiaire* (même format)."
                 );
+            // ----------------------
+// SAISIE BENEFICIAIRE
+// ----------------------
+            case 'guess_enter_beneficiary':
+
+                $parts = array_map('trim', explode(';', $text));
+
+                if (count($parts) < 9) {
+                    return $this->send($session->wa_id,
+                        "❌ Format invalide.\n"
+                        . "Nom;\nPrénom;\nCodePays;\nTéléphone;\nAdresse;\nProfession;\nDateNaissance;\nSexe;\nCivilité"
+                    );
+                }
+
+                $beneficiary = [
+                    'first_name' => $parts[0],
+                    'last_name'  => $parts[1],
+                    'country'    => $parts[2],
+                    'phone'      => $parts[3],
+                    'address'    => $parts[4],
+                    'occupation' => $parts[5],
+                    'birth_date' => $parts[6],
+                    'gender'     => $parts[7],
+                    'civility'   => $parts[8],
+                ];
+
+                $nextStep = $session->transfer_mode === 'bank'
+                    ? 'enter_bank_details'
+                    : 'enter_mobile_details';
+
+                $session->update([
+                    'beneficiary' => $beneficiary,
+                    'step'        => $nextStep
+                ]);
+
+                return $this->send(
+                    $session->wa_id,
+                    $session->transfer_mode === 'bank'
+                        ? "🏦 *Informations bancaires*\nNuméro de compte;Nom Banque;SWIFT/IFSC"
+                        : "📱 *Mobile Money*\nEntrez le numéro du bénéficiaire"
+                );
+// ----------------------
+// DETAILS BANCAIRES
+// ----------------------
+            case 'enter_bank_details':
+
+                $parts = array_map('trim', explode(';', $text));
+
+                if (count($parts) < 3) {
+                    return $this->send($session->wa_id,
+                        "❌ Format invalide.\nNuméroCompte;NomBanque;SWIFT/IFSC"
+                    );
+                }
+
+                $session->update([
+                    'accountNumber' => $parts[0],
+                    'bank_name'     => $parts[1],
+                    'swiftCode'     => $parts[2],
+                    'step'          => 'enter_amount'
+                ]);
+
+                return $this->send($session->wa_id,
+                    "💰 Entrez le *montant à envoyer* (XAF)."
+                );
+// ----------------------
+// DETAILS MOBILE MONEY
+// ----------------------
+            case 'enter_mobile_details':
+
+                if (!preg_match('/^[0-9]{9,15}$/', $text)) {
+                    return $this->send($session->wa_id,
+                        "❌ Numéro invalide. Réessayez."
+                    );
+                }
+
+                $session->update([
+                    'wallet_number' => $text,
+                    'step'          => 'enter_amount'
+                ]);
+
+                return $this->send($session->wa_id,
+                    "💰 Entrez le *montant à envoyer* (XAF)."
+                );
+// ----------------------
+// SAISIE DU MONTANT
+// ----------------------
+            case 'enter_amount':
+
+                if (!is_numeric($text) || $text <= 0) {
+                    return $this->send($session->wa_id,
+                        "❌ *Montant invalide.*\nEntrez un nombre positif."
+                    );
+                }
+
+                $amount = (float) $text;
+
+                // Récupération des taux
+                $res = Http::get(config('whatsapp.wtc_url') . "api/tauxechanges/{$session->countryId}")
+                    ->json();
+
+                if (!isset($res['data'])) {
+                    return $this->send($session->wa_id,
+                        "❌ Erreur lors du calcul des frais. Réessayez."
+                    );
+                }
+
+                $fees = $res['data'];
+
+                // Calcul
+                $calcul = $this->calculTaux(
+                    $amount,
+                    $fees['taux_xaf_usd'] ?? 0,
+                    $fees['taux_country'] ?? 0,
+                    $fees['rate'] ?? 0
+                );
+
+                $session->update([
+                    'amount'       => $amount,
+                    'fees'         => $calcul['rate'],
+                    'amount_send'  => $calcul['amount_send'],
+                    'step'         => 'preview'
+                ]);
+
+                return $this->sendPreview($session);
+// ----------------------
+// CONFIRMATION
+// ----------------------
+            case 'preview':
+
+                $answer = strtolower($text);
+
+                if (!in_array($answer, ['oui', 'non'])) {
+                    return $this->send($session->wa_id,
+                        "❓ Répondez uniquement par *oui* ou *non*."
+                    );
+                }
+
+                if ($answer === 'non') {
+                    $session->update([
+                        'step' => 'start',
+                        'mode_step' => 'none'
+                    ]);
+
+                    return $this->send($session->wa_id,
+                        "❌ Transfert annulé.\nTapez *menu* pour recommencer."
+                    );
+                }
+
+                // OUI → EXECUTION
+                $session->update(['step' => 'send']);
+
+                return $this->executeTransfer($session);
+
         }
     }
 
@@ -856,6 +1009,48 @@ class WhatsappWebhookController extends Controller
 
         }
 
+    }
+    private function sendPreview(WhatsappSession $session)
+    {
+        $sender = $session->sender;
+        $benef  = $session->beneficiary;
+
+        $modeInfo = $session->transfer_mode === 'bank'
+            ? "🏦 *Banque* : {$session->bank_name}\n"
+            . "🔢 *Compte* : {$session->accountNumber}\n"
+            . "🌐 *SWIFT* : {$session->swiftCode}\n"
+            : "📱 *Mobile* : {$session->wallet_number}\n";
+
+        $body =
+            "📄 *PRÉVISUALISATION DU TRANSFERT*\n\n"
+            . "👤 *Expéditeur*\n"
+            . "{$sender['first_name']} {$sender['last_name']}\n\n"
+
+            . "👥 *Bénéficiaire*\n"
+            . "{$benef['first_name']} {$benef['last_name']}\n\n"
+
+            . "🌍 *Pays* : {$session->country}\n"
+            . "🏙️ *Ville ID* : {$session->cityId}\n\n"
+
+            . "💳 *Mode* : " . strtoupper($session->transfer_mode) . "\n"
+            . $modeInfo . "\n"
+
+            . "💰 *Montant envoyé* : "
+            . number_format($session->amount, 0, ',', ' ')
+            . " XAF\n"
+
+            . "💸 *Frais* : "
+            . number_format($session->fees, 0, ',', ' ')
+            . " XAF\n"
+
+            . "➡️ *Montant reçu* : "
+            . number_format($session->amount_send, 0, ',', ' ')
+            . "\n\n"
+
+            . "✅ Confirmez-vous ce transfert ?\n"
+            . "Répondez par *oui* ou *non*";
+
+        return $this->send($session->wa_id, $body);
     }
 
 
