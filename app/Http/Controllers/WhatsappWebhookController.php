@@ -893,7 +893,7 @@ class WhatsappWebhookController extends Controller
                     'step'         => 'preview'
                 ]);
 
-               $this->sendPreview($session);
+             return  $this->sendPreview($session);
 // ----------------------
 // CONFIRMATION
 // ----------------------
@@ -1009,8 +1009,8 @@ class WhatsappWebhookController extends Controller
     }
     private function sendPreview(WhatsappSession $session)
     {
-        $sender = $session->sender;
-        $benef  = $session->beneficiary;
+        $sender = json_decode($session->sender,true);
+        $benef  =json_decode( $session->beneficiary,true);
         logger('preview calll');
         $modeInfo = $session->transfer_mode === 'bank'
             ? "🏦 *Banque* : {$session->bank_name}\n"

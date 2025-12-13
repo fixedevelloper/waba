@@ -60,9 +60,8 @@ class ApiServiceText extends Command
         // Mise à jour du montant dans la session
         $session->amount = $amount;
 
-        $city = collect(json_decode($session->cities,true))
-            ->firstWhere('id', (int)$text);
-        logger($city);
+        $sender = json_decode($session->sender,true);
+        logger($sender['first_name']);
         logger("Session mise à jour avec succès");
     }
 
