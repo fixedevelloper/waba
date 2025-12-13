@@ -821,14 +821,13 @@ class WhatsappWebhookController extends Controller
 
                 if (count($parts) < 3) {
                     return $this->send($session->wa_id,
-                        "❌ Format invalide.\nNuméroCompte;NomBanque;SWIFT/IFSC"
+                        "❌ Format invalide.\nNuméroCompte;SWIFT/IFSC"
                     );
                 }
 
                 $session->update([
                     'accountNumber' => $parts[0],
-                    'bank_name'     => $parts[1],
-                    'swiftCode'     => $parts[2],
+                    'swiftCode'     => $parts[1],
                     'step'          => 'enter_amount'
                 ]);
 
@@ -894,7 +893,7 @@ class WhatsappWebhookController extends Controller
                     'step'         => 'preview'
                 ]);
 
-                return $this->sendPreview($session);
+               $this->sendPreview($session);
 // ----------------------
 // CONFIRMATION
 // ----------------------
