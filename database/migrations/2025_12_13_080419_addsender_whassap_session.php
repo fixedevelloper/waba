@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('whatsapp_sessions',function (Blueprint $table){
-            $table->json('sender')->nullable()->after('city');
-            $table->json('beneficiary')->nullable()->after('sender');
+            $table->json('sender')->change()->nullable();
+            $table->json('beneficiary')->change()->nullable();
         });
     }
 
