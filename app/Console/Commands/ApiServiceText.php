@@ -28,7 +28,7 @@ class ApiServiceText extends Command
      */
     public function handle()
     {
-        $session = WhatsappSession::find(18);
+        $session = WhatsappSession::find(27);
         if (!$session) {
             logger("Session non trouvée");
             return;
@@ -54,16 +54,15 @@ class ApiServiceText extends Command
         $session->expires_at  = now()->addMinutes(30); // expiration du token
         $session->save();*/
         // ⚠ Correction du bug "=" → "==="
-        $text=20000000;
+        $text=67;
         $amount = (float) $text;
 
         // Mise à jour du montant dans la session
         $session->amount = $amount;
 
-        // Appel API des taux
-        $resFees = Http::get(config('whatsapp.wtc_url') . "api/tauxechanges/1");
-
-        logger($resFees);
+        $city = collect(json_decode($session->cities,true))
+            ->firstWhere('id', (int)$text);
+        logger($city);
         logger("Session mise à jour avec succès");
     }
 

@@ -714,7 +714,7 @@ class WhatsappWebhookController extends Controller
             // ----------------------
             case 'select_city':
 
-                $city = collect($session->cities)
+                $city = collect(json_decode($session->cities,true))
                     ->firstWhere('id', (int)$text);
 
                 if (!$city) {
