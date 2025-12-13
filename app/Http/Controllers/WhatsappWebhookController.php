@@ -731,7 +731,7 @@ class WhatsappWebhookController extends Controller
                 return $this->send($session->wa_id,
                     "👤 *Informations Expéditeur*\n\n"
                     . "Format obligatoire :\n"
-                    . "Nom;Prénom;CodePays;Email;Téléphone;Adresse;Profession;DateNaissance(YYYY-MM-DD);Sexe(M/F);Civilité;TypePièce;NuméroPièce;DateExpiration"
+                    . "Nom;\nPrénom;\nCodePays;\nEmail;\nTéléphone;\nAdresse;\nProfession;\nDateNaissance(YYYY-MM-DD);\nSexe(M/F);\nCivilité;\nTypePièce;\nNuméroPièce;\nDateExpiration"
                 );
 
             // ----------------------
