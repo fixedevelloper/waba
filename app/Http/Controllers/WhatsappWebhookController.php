@@ -900,29 +900,27 @@ class WhatsappWebhookController extends Controller
 // ----------------------
             case 'preview':
 
-                $answer = strtolower($text);
-
-                if (!in_array($answer, ['oui', 'non'])) {
+                // IMPORTANT : on attend une réponse utilisateur
+                if (!in_array(strtolower($text), ['oui', 'non'])) {
                     return $this->send($session->wa_id,
                         "❓ Répondez uniquement par *oui* ou *non*."
                     );
                 }
 
-                if ($answer === 'non') {
+                if (strtolower($text) === 'non') {
                     $session->update([
                         'step' => 'start',
                         'mode_step' => 'none'
                     ]);
 
                     return $this->send($session->wa_id,
-                        "❌ Transfert annulé.\nTapez *menu* pour recommencer."
+                        "❌ Transfert annulé."
                     );
                 }
 
-                // OUI → EXECUTION
                 $session->update(['step' => 'send']);
-
                 return $this->executeTransfer($session);
+
 
         }
     }
@@ -1014,7 +1012,7 @@ class WhatsappWebhookController extends Controller
     {
         $sender = $session->sender;
         $benef  = $session->beneficiary;
-
+        logger('preview calll');
         $modeInfo = $session->transfer_mode === 'bank'
             ? "🏦 *Banque* : {$session->bank_name}\n"
             . "🔢 *Compte* : {$session->accountNumber}\n"
