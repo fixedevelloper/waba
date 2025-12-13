@@ -31,7 +31,7 @@ class WhatsappSession extends Model
 
         'country',
         'countryId',
-
+        'cities',
         'city',
         'cityId',
         'beneficiaries',
