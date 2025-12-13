@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::table('whatsapp_sessions',function (Blueprint $table){
             $table->json('sender')->change()->nullable();
             $table->json('beneficiary')->change()->nullable();
+            $table->json('cities')->nullable();
         });
     }
 
