@@ -796,11 +796,7 @@ class WhatsappWebhookController extends Controller
                     'civility'   => $parts[8],
                 ];
 
-                $nextStep = $session->transfer_mode === 'bank'
-                    ? 'enter_bank_details'
-                    : 'enter_mobile_details';
-                $isMobile = ($session->transfer_mode === "mobile" || $session->transfer_mode == 1);
-
+                $isMobile = ($session->transfer_mode === "mobile");
                 $endpoint = $isMobile ? "operatorslists" : "banklists";
 
                 $resp_operators = Http::get(
@@ -809,56 +805,56 @@ class WhatsappWebhookController extends Controller
 
                 $operators = $resp_operators['data'] ?? [];
 
+                if (empty($operators)) {
+                    return $this->send($session->wa_id, "❌ Aucun opérateur ou banque disponible pour ce pays.");
+                }
+
                 $list = "";
                 foreach ($operators as $op) {
                     $list .= "{$op['id']}. {$op['name']}\n";
                 }
+
                 $session->update([
                     'beneficiary' => $beneficiary,
-                    'step'        => 'enter_operator',
-                    'operators' => $operators
+                    'operators'   => $operators,
+                    'step'        => 'enter_operator'
                 ]);
 
                 return $this->send(
                     $session->wa_id,
-                    $session->transfer_mode === 'bank'
-                        ? "🏦 *Informations bancaires*\nNuméro de compte;SWIFT/IFSC"
-                        : "📱 *Mobile Money*\nEntrez le numéro du bénéficiaire"
+                    $isMobile
+                        ? "📱 *Opérateurs Mobile Money disponibles :*\n$list\nEntrez le numéro correspondant à l'opérateur choisi."
+                        : "🏦 *Banques disponibles :*\n$list\nEntrez le numéro correspondant à la banque choisie."
                 );
+
+
             case 'enter_operator':
 
                 if (!ctype_digit($text)) {
-                    return $this->send($session->wa_id,
-                        "❌ Entrez un numéro valide."
-                    );
+                    return $this->send($session->wa_id, "❌ Veuillez entrer un numéro valide correspondant à un opérateur/banque.");
                 }
 
                 $operators = collect(
-                    is_string($session->operators)
-                        ? json_decode($session->operators, true)
-                        : $session->operators
+                    is_string($session->operators) ? json_decode($session->operators, true) : $session->operators
                 );
 
                 $selected = $operators->firstWhere('id', (int)$text);
 
                 if (!$selected) {
-                    return $this->send($session->wa_id,
-                        "❌ Opérateur introuvable."
-                    );
+                    return $this->send($session->wa_id, "❌ Aucun opérateur ou banque ne correspond à ce numéro.");
                 }
 
                 $session->update([
-                    'operator_id' => $selected['id'],
+                    'operator_id'   => $selected['id'],
                     'operator_name' => $selected['name'],
-                    'step' => $session->transfer_mode === 'bank'
-                        ? 'enter_bank_details'
-                        : 'enter_mobile_details'
+                    'step'          => $session->transfer_mode === 'bank' ? 'enter_bank_details' : 'enter_mobile_details'
                 ]);
 
-                return $this->send($session->wa_id,
+                return $this->send(
+                    $session->wa_id,
                     $session->transfer_mode === 'bank'
-                        ? "🏦 Numéro de compte;SWIFT/IFSC"
-                        : "📱 Numéro Mobile Money"
+                        ? "🏦 Entrez le numéro de compte et le SWIFT/IFSC séparés par un `;` (Ex: 123456789;BNCCMCMX)"
+                        : "📱 Entrez le numéro Mobile Money du bénéficiaire."
                 );
 
 
