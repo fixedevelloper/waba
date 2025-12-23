@@ -730,7 +730,7 @@ class WhatsappWebhookController extends Controller
 
                 return $this->send($session->wa_id,
                     "👤 *Informations Expéditeur*\n\n"
-                    . "Format obligatoire :\n"
+                    . "Entrez les informations du L'expéditeur et separer par les virgule \n Format obligatoire :\n"
                     . "1-Nom;\nPrénom;\nCodePays;\nEmail;\nTéléphone;\nAdresse;\nProfession;\nDateNaissance(YYYY-MM-DD);\nSexe(M/F);\nCivilité;\nTypePièce;\nNuméroPièce;\nDateExpiration"
                 );
 
@@ -779,7 +779,7 @@ class WhatsappWebhookController extends Controller
 
                 if (count($parts) < 9) {
                     return $this->send($session->wa_id,
-                        "❌ Format invalide.\n"
+                        "Entrez les informations du beneficiare et separer par les virgule \n ❌ Format invalide.\n"
                         . "Nom;\nPrénom;\nCodePays;\nTéléphone;\nAdresse;\nProfession;\nDateNaissance;\nSexe;\nCivilité"
                     );
                 }
@@ -1243,7 +1243,7 @@ class WhatsappWebhookController extends Controller
             . "\n\n"
 
             . "✅ Confirmez-vous ce transfert ?\n"
-            . "Répondez par *oui* ou *non*";
+            . "Entrer le token de verification que vous avez recu ";
 
         return $this->send($session->wa_id, $body);
     }
