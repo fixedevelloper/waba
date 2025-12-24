@@ -731,7 +731,7 @@ class WhatsappWebhookController extends Controller
                 return $this->send($session->wa_id,
                     "👤 *Informations Expéditeur*\n\n"
                     . "Entrez les informations du L'expéditeur et separer par les virgule \n Format obligatoire :\n"
-                    . "1-Nom;\nPrénom;\nCodePays;\nEmail;\nTéléphone;\nAdresse;\nProfession;\nDateNaissance(YYYY-MM-DD);\nSexe(M/F);\nCivilité;\nTypePièce;\nNuméroPièce;\nDateExpiration"
+                    . "Nom;\nPrénom;\nCodePays;\nEmail;\nTéléphone;\nAdresse;\nProfession;\nDateNaissance(YYYY-MM-DD);\nSexe(M/F);\nCivilité(Maried/Single);\nTypePièce;\nNuméroPièce;\nDateExpiration"
                 );
 
             // ----------------------
@@ -769,7 +769,8 @@ class WhatsappWebhookController extends Controller
                 ]);
 
                 return $this->send($session->wa_id,
-                    "👥 *Entrez maintenant les informations du bénéficiaire* (même format)."
+                    "Entrez les informations du beneficiare et separer par les virgule \n ❌ Format invalide.\n"
+                    . "Nom;\nPrénom;\nCodePays;\nEmail;\nTéléphone;\nAdresse;\nProfession;\nDateNaissance(YYYY-MM-DD);\nSexe(M/F);\nCivilité(Maried/Single);\nTypePièce;\nNuméroPièce;\nDateExpiration"
                 );
             // ----------------------
 
@@ -788,12 +789,16 @@ class WhatsappWebhookController extends Controller
                     'first_name' => $parts[0],
                     'last_name'  => $parts[1],
                     'country'    => $parts[2],
-                    'phone'      => $parts[3],
-                    'address'    => $parts[4],
-                    'occupation' => $parts[5],
-                    'birth_date' => $parts[6],
-                    'gender'     => $parts[7],
-                    'civility'   => $parts[8],
+                    'email'      => $parts[3],
+                    'phone'      => $parts[4],
+                    'address'    => $parts[5],
+                    'occupation' => $parts[6],
+                    'birth_date' => $parts[7],
+                    'gender'     => $parts[8],
+                    'civility'   => $parts[9],
+                    'id_type'    => $parts[10],
+                    'id_number'  => $parts[11],
+                    'id_expiry'  => $parts[12],
                 ];
 
                 $isMobile = ($session->transfer_mode === "mobile");
@@ -826,14 +831,6 @@ class WhatsappWebhookController extends Controller
                     $session->wa_id,
                     "❤️ *Relation avec le bénéficiaire :*\n\n$list\n\nEntrez le numéro."
                 );
-
-
-/*                return $this->send(
-                    $session->wa_id,
-                    $isMobile
-                        ? "📱 *Opérateurs Mobile Money disponibles :*\n$list\nEntrez le numéro correspondant à l'opérateur choisi."
-                        : "🏦 *Banques disponibles :*\n$list\nEntrez le numéro correspondant à la banque choisie."
-                );*/
 
             case 'select_relaction':
 
@@ -1091,7 +1088,7 @@ class WhatsappWebhookController extends Controller
                 }
 
                 $session->update([
-                    'web_transaction_id' => $data['id'],
+                  //  'web_transaction_id' => $data['id'],
                     'step' => 'preview_confirm'
                 ]);
 
@@ -1347,53 +1344,60 @@ class WhatsappWebhookController extends Controller
     }
     private function executeTransferGuess(WhatsappSession $session)
     {
+        $sender = json_decode($session->sender,true);
+        $beneficiary  =json_decode( $session->beneficiary,true);
         $data = [
             "amount" => $session->amount,
-            "rate" => 15.25,
-            "total_amount" => 1515.75,
+            "rate" => $session->fees ?? 0,
+            "total_amount" => $session->amount,
             "comment" => "Paiement facture",
-            "acount_number" => "1234567890",
+            "acount_number" => $session->accountNumber ?? null,
             "wallet" => "BankWallet",
-            "origin_fond" => "Compte courant",
-            "motif" => "Paiement fournisseur",
-            "relaction" => "Facture 2025-12",
-            "country_id" => 1,
-            "city_id" => 5,
-            "operator_id" => 3,
+            "origin_fond" => $session->origin_fond,
+            "motif" => $session->motif,
+            "relaction" => $session->relaction,
+            'country_id'     => $session->countryId,
+            'city_id'        => $session->cityId ?? null,
+            "operator_id" => $session->operator_id,
             "bank_name" => "Banque Centrale",
-            "swiftCode" => "ABCDEF12",
-            "ifscCode" => "IFSC0001234",
+            'swiftCode'      => $session->swiftCode ?? null,
+            'ifscCode'       => $session->ifscCode ?? null,
 
             "sender" => [
                 "type" => "P",
-                "firstname" => "John",
-                "lastname" => "Doe",
-                "email" => "john.doe@example.com",
-                "address" => "123 Rue Principale",
-                "dateOfBirth" => "1990-05-15",
-                "expireddatepiece" => "2030-12-31",
-                "typeidentification" => "Passport",
-                "numeropiece" => "A12345678",
-                "country" => "CM",
-                "civility" => "M",
-                "gender" => "M",
-                "city" => "Douala",
-                "occupation" => "Ingénieur",
-                "phone" => "+237699112233"
+                "firstname" => $sender['first_name'] ,
+                "lastname" => $sender['last_name'],
+                "email" => $sender['email'],
+                "address" => $sender['address'],
+                "dateOfBirth" =>$sender['birth_date'],
+                "expireddatepiece" => $sender['id_expiry'],
+                "typeidentification" => $sender['id_type'],
+                "numeropiece" => $sender['id_number'],
+                "country" => $sender['country'],
+                "civility" => $sender['civility'],
+                "gender" => $sender['gender'],
+                "city" => $session->city ,
+                "occupation" => $sender['occupation'],
+                "phone" => $sender['phone']
             ],
 
             "beneficiary" => [
-                "type" => "B",
-                "bussinesname" => "Tech Solutions SARL",
-                "bussinestype" => "IT Services",
-                "regiterBusinessDate" => "2018-06-20",
-                "email" => "contact@techsolutions.cm",
-                "phone" => "+237677889900",
-                "idNumber" => "BIZ123456",
-                "countryIsoCode" => "CM",
-                "idType" => "RC",
-                "firstname" => null,
-                "lastname" => null
+                "customer_id" => 13,
+                "type" => "P", // P ou B
+                "email" => $beneficiary['email'],
+                "phone" => $beneficiary['phone'],
+                "dateOfBirth" => $beneficiary['email'],
+                "document_expired" => $beneficiary['email'],
+                "countryIsoCode" => $beneficiary['email'],
+                "document_number" => $beneficiary['email'],
+                "document_id" => $beneficiary['email'],
+
+                "account_number" => $beneficiary['email'],
+                "ifsc_code" => $beneficiary['email'],
+                "swift_code" => $beneficiary['email'],
+
+                "first_name" => $beneficiary['first_name'],
+                "last_name" => $beneficiary['last_name']
             ]
         ];
 

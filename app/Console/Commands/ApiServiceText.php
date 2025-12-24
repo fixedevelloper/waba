@@ -28,113 +28,72 @@ class ApiServiceText extends Command
      */
     public function handle()
     {
-        $session = WhatsappSession::find(27);
+        $session = WhatsappSession::find(31);
         if (!$session) {
             logger("Session non trouvée");
             return;
         }
-        $beneficiary = [
-            "customer_id" => 13,
-            "type" => "P",
-            "email" => "john.doe@gmail.com",
-            "phone" => "+237699112233",
-            "dateOfBirth" => "1990-05-15",
-            "document_expired" => "2032-01-01",
-            "countryIsoCode" => "CM",
-            "document_number" => "A12345678",
-            "document_id" => "Passport",
 
-            "account_number" => "9876543210",
-            "swift_code" => "ECOCCMCX",
-
-            "first_name" => "John",
-            "last_name" => "Doe"
-        ];
-        $beneficiaryB = [
-            "customer_id" => 13,
-            "type" => "B", // P ou B
-            "email" => "contact@techsolutions.cm",
-            "phone" => "+237677889900",
-            "dateOfBirth" => null,
-            "document_expired" => "2030-12-31",
-            "countryIsoCode" => "CM",
-            "document_number" => "RC123456",
-            "document_id" => "RC",
-
-            "account_number" => "1234567890",
-            "ifsc_code" => null,
-            "swift_code" => "ECOCCMCX",
-
-            "business_name" => "Tech Solutions SARL",
-            "business_type" => "IT Services",
-            "register_business_date" => "2018-06-20"
-        ];
-
-        $senderB = [
-            "customer_id" => "13",
-            "type" => "B",
-            "business_name" => "SmartPay SARL",
-            "business_type" => "Fintech",
-            "register_business_date" => "2019-06-01",
-            "email" => "contact@smartpay.cm",
-            "phone" => "+237677889900",
-            "address" => "Bonanjo",
-            "city" => "Douala",
-            "countryIsoCode" => "CM",
-            "document_number" => "RC789456",
-            "document_id" => "RC",
-            "document_expired" => "2035-12-31"
-        ];
-
-        $sender = [
-            "customer_id" => "13",
-            "type" => "P",
-            "first_name" => "Jean",
-            "last_name" => "Mbarga",
-            "email" => "jean.mbarga@gmail.com",
-            "phone" => "+237699112233",
-            "address" => "Akwa Nord",
-            "city" => "Douala",
-            "occupation" => "Commerçant",
-            "gender" => "M",
-            "civility" => "M",
-            "dateOfBirth" => "1992-04-10",
-            "countryIsoCode" => "CM",
-            "document_number" => "A12345678",
-            "document_id" => "CNI",
-            "document_expired" => "2032-01-01"
-        ];
-
+        $this->executeTransferGuess($session);
+        logger("Session mise à jour avec succès");
+    }
+    private function executeTransferGuess(WhatsappSession $session)
+    {
+        $sender = json_decode($session->sender,true);
+        $beneficiary  =json_decode( $session->beneficiary,true);
         $data = [
-            // ======================
-            // MONTANTS
-            // ======================
-            'amount'        => 1500,
-            'rate'          => 25.00,
-            'total_amount'  => 1525.00,
+            "amount" => $session->amount,
+            "rate" => $session->fees ?? 0,
+            "total_amount" => $session->amount,
+            "comment" => "Paiement facture",
+            "acount_number" => $session->accountNumber ?? null,
+            "wallet" => "BankWallet",
+            "origin_fond" => $session->origin_fond,
+            "motif" => $session->motif,
+            "relaction" => $session->relaction,
+            'country_id'     => $session->countryId,
+            'city_id'        => $session->cityId ?? null,
+            "operator_id" => $session->operator_id,
+            "bank_name" => "Banque Centrale",
+            'swiftCode'      => $session->swiftCode ?? null,
+            'ifscCode'       => $session->ifscCode ?? null,
 
-            // ======================
-            // INFOS TRANSACTION
-            // ======================
-            'comment'        => 'Paiement fournisseur',
-            'account_number' => '123456789012',
-            'wallet'         => 'BANK',
-            'origin_fond'    => 'Salaire',
-            'motif'          => 'Achat marchandises',
-            'relaction'      => 'Fournisseur',
-            'bank_name'      => 'ECOBANK',
-            'swiftCode'      => 'ECOCCMCX',
+            "sender" => [
+                "type" => "P",
+                "firstname" => $sender['first_name'] ,
+                "lastname" => $sender['last_name'],
+                "email" => $sender['email'],
+                "address" => $sender['address'],
+                "dateOfBirth" =>$sender['birth_date'],
+                "expireddatepiece" => $sender['id_expiry'],
+                "typeidentification" => $sender['id_type'],
+                "numeropiece" => $sender['id_number'],
+                "country" => $sender['country'],
+                "civility" => $sender['civility'],
+                "gender" => $sender['gender'],
+                "city" => $session->city ,
+                "occupation" => $sender['occupation'],
+                "phone" => $sender['phone']
+            ],
 
-            // ======================
-            // ENTITÉS LIÉES (IDS BDD)
-            // ======================
-            'country_id'  => 4,
-            'city_id'     => 67,
-            'operator_id' => 49,
+            "beneficiary" => [
+                "customer_id" => 13,
+                "type" => "P", // P ou B
+                "email" => $beneficiary['email'],
+                "phone" => $beneficiary['phone'],
+                "dateOfBirth" => $beneficiary['birth_date'],
+                "document_expired" => $beneficiary['id_expiry'],
+                "countryIsoCode" => $beneficiary['country'],
+                "document_number" => $beneficiary['document_number'],
+                "document_id" => $beneficiary['id_type'],
 
-            "sender" => $sender,
+                "account_number" => $beneficiary['account_number'],
+                "ifsc_code" => $beneficiary['ifsc_code'],
+                "swift_code" => $beneficiary['swift_code'],
 
-            "beneficiary"=> $beneficiary
+                "first_name" => $beneficiary['first_name'],
+                "last_name" => $beneficiary['last_name']
+            ]
         ];
 
 
@@ -144,9 +103,23 @@ class ApiServiceText extends Command
         // Appel API
         $response = Http::withToken($session->token)
             ->post(config('whatsapp.wtc_url') . "api/transactions/$endpoint", $data);
-        logger($response);
-        logger("Session mise à jour avec succès");
-    }
 
+        // Vérifier succès
+        if ($response->failed()) {
+            logger("Erreur transfert : ", $response->json());
+            return [
+                'status'  => 'error',
+                'message' => 'Impossible de réaliser le transfert. Réessayez plus tard.'
+            ];
+        }
+
+        // Retour JSON de l’API
+        $res = $response->json();
+
+        // Mettre à jour la session
+        $session->update(['step' => 'completed']);
+
+        return $res;
+    }
 
 }
