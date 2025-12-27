@@ -1207,11 +1207,14 @@ class WhatsappWebhookController extends Controller
         $sender = json_decode($session->sender,true);
         $benef  =json_decode( $session->beneficiary,true);
         logger('preview calll');
+        $account = $benef['account_number'] ?? 'Non renseigné';
+
         $modeInfo = $session->transfer_mode === 'bank'
             ? "🏦 *Banque* : {$session->bank_name}\n"
-            . "🔢 *Compte* : {$benef['account_number']}\n"
+            . "🔢 *Compte* : {$account}\n"
             . "🌐 *SWIFT* : {$session->swiftCode}\n"
             : "📱 *Mobile* : {$session->wallet_number}\n";
+
 
         $body =
             "📄 *PRÉVISUALISATION DU TRANSFERT*\n\n"
