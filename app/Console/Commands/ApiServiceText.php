@@ -94,7 +94,7 @@ class ApiServiceText extends Command
                 "swift_code"        => $session->swiftCode,
             ]
         ];
-logger($data);
+
         $endpoint = $session->transfer_mode === 'mobile' ? 'mobile' : 'bank';
 
         $response = Http::withToken($session->token)
