@@ -1967,50 +1967,66 @@ class WhatsappWebhookController extends Controller
         WhatsappSession $session,
         string $type,          // sender | beneficiary
         string $text,
-        string $nextStep       // step suivant après la fin
+        string $nextStep
     ) {
-        $indexKey = $type . '_index';     // sender_index / beneficiary_index
-        $dataKey  = $type;                // sender / beneficiary
+        $indexKey = $type . '_index';
+        $dataKey  = $type;
 
         $index = (int) ($session->$indexKey ?? 0);
-
         $steps = array_keys($this->kycSteps[$type]);
 
-        // ❌ Sécurité : index hors limite
         if (!isset($steps[$index])) {
-            $session->update([
-                'step' => $nextStep
-            ]);
-            return null;
+            return $this->send(
+                $session->wa_id,
+                "❌ Erreur interne. Recommencez."
+            );
         }
 
         $field = $steps[$index];
 
-        // ❌ Validation basique
-        if (empty(trim($text))) {
+        if (trim($text) === '') {
             return $this->send(
                 $session->wa_id,
-                "❌ Champ invalide.\n" . $this->kycSteps[$type][$field]['label']
+                "❌ Champ invalide.\n" .
+                $this->kycSteps[$type][$field]['label']
             );
         }
 
-        // 🔹 Récup données existantes
-        $data = json_decode($session->$dataKey ?? '{}', true);
+        // Données existantes
+        $data = $session->$dataKey ?? [];
+        if (is_string($data)) {
+            $data = json_decode($data, true) ?? [];
+        }
 
-        // 🔹 Enregistrer champ courant
+        // Sauvegarde
         $data[$field] = trim($text);
-
-        // 🔹 Incrément index
         $index++;
 
-        // 🔹 FIN DU KYC → étape suivante
+        // ✅ FIN DU KYC (sender ou beneficiary)
         if (!isset($steps[$index])) {
 
             $session->update([
-                $dataKey  => json_encode($data),
+                $dataKey  => $data,
                 $indexKey => 0,
                 'step'    => $nextStep
             ]);
+
+            /**
+             * 🎯 TRANSITIONS
+             */
+            // ➜ Fin SENDER → démarrer BENEFICIARY
+            if ($type === 'sender' && $nextStep === 'enter_beneficiary') {
+                return $this->send(
+                    $session->wa_id,
+                    "👤 *Informations du bénéficiaire*\n\n" .
+                    $this->kycSteps['beneficiary']['first_name']['label']
+                );
+            }
+
+            // ➜ Fin BENEFICIARY → proposer RELATIONS
+            if ($type === 'beneficiary' && $nextStep === 'select_relation') {
+                return $this->sendRelationList($session);
+            }
 
             return $this->send(
                 $session->wa_id,
@@ -2018,9 +2034,9 @@ class WhatsappWebhookController extends Controller
             );
         }
 
-        // 🔹 CONTINUER KYC
+        // ➜ CONTINUER LE KYC
         $session->update([
-            $dataKey  => json_encode($data),
+            $dataKey  => $data,
             $indexKey => $index
         ]);
 
@@ -2030,5 +2046,37 @@ class WhatsappWebhookController extends Controller
         );
     }
 
+
+    private function sendRelationList(WhatsappSession $session)
+    {
+        $response = Http::withToken($session->token)
+            ->get(
+                config('whatsapp.wtc_url') .
+                "v2/wace_data?sender_type=P&beneficiary_type=P&service=relaction"
+            );
+
+        if ($response->failed()) {
+            return $this->send(
+                $session->wa_id,
+                "❌ Impossible de charger les relations."
+            );
+        }
+
+        $relations = $response->json()['data'] ?? [];
+
+        $list = "";
+        foreach ($relations as $r) {
+            $list .= "{$r['id']}. {$r['name']}\n";
+        }
+
+        $session->update([
+            'relations' => $relations
+        ]);
+
+        return $this->send(
+            $session->wa_id,
+            "❤️ *Relation avec le bénéficiaire :*\n\n$list\n\nEntrez le numéro."
+        );
+    }
 
 }
