@@ -379,7 +379,7 @@ class WhatsappWebhookController extends Controller
                 }
 
                 $session->update([
-                    'relaction' => $selectedRelation['id'],
+                    'relaction' => $selectedRelation['name'],
                     'step' => 'select_origin_fond'
                 ]);
 
@@ -420,7 +420,7 @@ class WhatsappWebhookController extends Controller
                 }
 
                 $session->update([
-                    'origin_fond' => $selectedOrigin['id'],
+                    'origin_fond' => $selectedOrigin['name'],
                     'step' => 'select_motif'
                 ]);
 
@@ -459,7 +459,7 @@ class WhatsappWebhookController extends Controller
                 }
 
                 $session->update([
-                    'motif' => $selectedMotif['id'],
+                    'motif' => $selectedMotif['name'],
                     'step' => 'select_operator'
                 ]);
 
@@ -515,14 +515,14 @@ class WhatsappWebhookController extends Controller
                 // Mise à jour de la session
                 $session->update([
                     'operator_id' => $operatorId,
-                    'step' => 'enter_account_number'
+                    'step' => 'enter_amount'
                 ]);
 
                 return $this->send($session->wa_id,
-                    "💰 Entrez le *numero de compe* ."
+                    "💰 Entrez le *montant* du transfert."
                 );
 
-
+/*
             case 'enter_account_number':
                 $session->update([
                     'accountNumber' => $text,
@@ -530,7 +530,7 @@ class WhatsappWebhookController extends Controller
                 ]);
                 return $this->send($session->wa_id,
                     "💰 Entrez le *montant* du transfert."
-                );
+                );*/
 
                 // ----------------------
                 // 🔥 MONTANT + FRAIS
@@ -846,7 +846,7 @@ class WhatsappWebhookController extends Controller
                 }
 
                 $session->update([
-                    'relaction' => $selectedRelation['id'],
+                    'relaction' => $selectedRelation['name'],
                     'step' => 'select_origin_fond'
                 ]);
 
@@ -887,7 +887,7 @@ class WhatsappWebhookController extends Controller
                 }
 
                 $session->update([
-                    'origin_fond' => $selectedOrigin['id'],
+                    'origin_fond' => $selectedOrigin['name'],
                     'step' => 'select_motif'
                 ]);
 
@@ -926,7 +926,7 @@ class WhatsappWebhookController extends Controller
                 }
 
                 $session->update([
-                    'motif' => $selectedMotif['id'],
+                    'motif' => $selectedMotif['name'],
                     'step' => 'enter_operator'
                 ]);
 
@@ -1209,7 +1209,7 @@ class WhatsappWebhookController extends Controller
         logger('preview calll');
         $modeInfo = $session->transfer_mode === 'bank'
             ? "🏦 *Banque* : {$session->bank_name}\n"
-            . "🔢 *Compte* : {$session->accountNumber}\n"
+            . "🔢 *Compte* : {$benef['account_number']}\n"
             . "🌐 *SWIFT* : {$session->swiftCode}\n"
             : "📱 *Mobile* : {$session->wallet_number}\n";
 
@@ -1346,12 +1346,13 @@ class WhatsappWebhookController extends Controller
     {
         $sender = json_decode($session->sender,true);
         $beneficiary  =json_decode( $session->beneficiary,true);
+
         $data = [
             "amount" => $session->amount,
             "rate" => $session->fees ?? 0,
             "total_amount" => $session->amount,
             "comment" => "Paiement facture",
-            "acount_number" => $session->accountNumber ?? null,
+            "account_number" => $session->accountNumber ?? null,
             "wallet" => "BankWallet",
             "origin_fond" => $session->origin_fond,
             "motif" => $session->motif,
@@ -1364,6 +1365,7 @@ class WhatsappWebhookController extends Controller
             'ifscCode'       => $session->ifscCode ?? null,
 
             "sender" => [
+                "customer_id" => 13,
                 "type" => "P",
                 "firstname" => $sender['first_name'] ,
                 "lastname" => $sender['last_name'],
@@ -1386,15 +1388,15 @@ class WhatsappWebhookController extends Controller
                 "type" => "P", // P ou B
                 "email" => $beneficiary['email'],
                 "phone" => $beneficiary['phone'],
-                "dateOfBirth" => $beneficiary['email'],
-                "document_expired" => $beneficiary['email'],
-                "countryIsoCode" => $beneficiary['email'],
-                "document_number" => $beneficiary['email'],
-                "document_id" => $beneficiary['email'],
+                "dateOfBirth" => $beneficiary['birth_date'],
+                "document_expired" => $beneficiary['id_expiry'],
+                "countryIsoCode" => $beneficiary['country'],
+                "document_number" => $beneficiary['id_number'],
+                "document_id" => $beneficiary['id_type'],
 
-                "account_number" => $beneficiary['email'],
-                "ifsc_code" => $beneficiary['email'],
-                "swift_code" => $beneficiary['email'],
+                "account_number" => $session->accontNumber,
+                "ifsc_code" => $session->ifsc_code,
+                "swift_code" => $session->swift_code,
 
                 "first_name" => $beneficiary['first_name'],
                 "last_name" => $beneficiary['last_name']

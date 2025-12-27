@@ -41,12 +41,13 @@ class ApiServiceText extends Command
     {
         $sender = json_decode($session->sender,true);
         $beneficiary  =json_decode( $session->beneficiary,true);
+
         $data = [
             "amount" => $session->amount,
             "rate" => $session->fees ?? 0,
             "total_amount" => $session->amount,
             "comment" => "Paiement facture",
-            "acount_number" => $session->accountNumber ?? null,
+            "account_number" => $session->accountNumber ?? null,
             "wallet" => "BankWallet",
             "origin_fond" => $session->origin_fond,
             "motif" => $session->motif,
@@ -59,6 +60,7 @@ class ApiServiceText extends Command
             'ifscCode'       => $session->ifscCode ?? null,
 
             "sender" => [
+                "customer_id" => 13,
                 "type" => "P",
                 "firstname" => $sender['first_name'] ,
                 "lastname" => $sender['last_name'],
@@ -84,12 +86,12 @@ class ApiServiceText extends Command
                 "dateOfBirth" => $beneficiary['birth_date'],
                 "document_expired" => $beneficiary['id_expiry'],
                 "countryIsoCode" => $beneficiary['country'],
-                "document_number" => $beneficiary['document_number'],
+                "document_number" => $beneficiary['id_number'],
                 "document_id" => $beneficiary['id_type'],
 
-                "account_number" => $beneficiary['account_number'],
-                "ifsc_code" => $beneficiary['ifsc_code'],
-                "swift_code" => $beneficiary['swift_code'],
+                "account_number" => $session->accontNumber,
+                "ifsc_code" => $session->ifsc_code,
+                "swift_code" => $session->swift_code,
 
                 "first_name" => $beneficiary['first_name'],
                 "last_name" => $beneficiary['last_name']
