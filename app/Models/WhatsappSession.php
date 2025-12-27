@@ -25,7 +25,8 @@ class WhatsappSession extends Model
 
         'beneficiary',
         'beneficiaryId',
-
+        'sender_index',
+        'beneficiary_index',
         'sender',
         'senderId',
 
