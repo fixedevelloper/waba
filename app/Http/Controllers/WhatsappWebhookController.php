@@ -816,7 +816,7 @@ class WhatsappWebhookController extends Controller
                     "❤️ *Relation avec le bénéficiaire :*\n\n$list\n\nEntrez le numéro."
                 );
 
-            case 'select_relaction':
+            case 'select_relation':
 
                 $relations = json_decode($session->relations, true);
                 // Vérifier relation choisie
