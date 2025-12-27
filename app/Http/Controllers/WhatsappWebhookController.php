@@ -1920,79 +1920,37 @@ class WhatsappWebhookController extends Controller
 
     private array $kycSteps = [
         'sender' => [
-            'first_name' => [
-                'label' => "Entrez le *nom* de l’expéditeur",
-                'rule'  => 'required',
-            ],
-            'last_name' => [
-                'label' => "Entrez le *prénom* de l’expéditeur",
-                'rule'  => 'required',
-            ],
-            'phone' => [
-                'label' => "📞 Entrez le *téléphone* de l’expéditeur",
-                'rule'  => 'phone',
-            ],
-            'email' => [
-                'label' => "📧 Entrez l’*email* de l’expéditeur",
-                'rule'  => 'email',
-            ],
-            'country' => [
-                'label' => "🌍 Code pays ISO2 (CM, CI…)",
-                'rule'  => 'iso2',
-            ],
-            'address' => [
-                'label' => "🏠 Adresse de l’expéditeur",
-                'rule'  => 'required',
-            ],
-            'occupation' => [
-                'label' => "💼 Profession",
-                'rule'  => 'required',
-            ],
-            'birth_date' => [
-                'label' => "📅 Date de naissance (YYYY-MM-DD)",
-                'rule'  => 'date',
-            ],
-            'gender' => [
-                'label' => "Sexe (M/F)",
-                'rule'  => 'gender',
-            ],
-            'civility' => [
-                'label' => "Civilité (MR/MME)",
-                'rule'  => 'required',
-            ],
-            'id_type' => [
-                'label' => "Type de pièce (CNI/PASSEPORT)",
-                'rule'  => 'required',
-            ],
-            'id_number' => [
-                'label' => "Numéro de pièce",
-                'rule'  => 'required',
-            ],
-            'id_expiry' => [
-                'label' => "Expiration pièce (YYYY-MM-DD)",
-                'rule'  => 'date',
-            ],
+            'first_name' => ['label' => '👤 Entrez le *nom*'],
+            'last_name'  => ['label' => 'Entrez le *prénom*'],
+            'phone'      => ['label' => '📞 Entrez le *téléphone*'],
+            'email'      => ['label' => '📧 Entrez l’*email*'],
+            'country'    => ['label' => '🌍 Code pays (ISO2, ex: CM)'],
+            'address'    => ['label' => '🏠 Adresse'],
+            'occupation' => ['label' => '💼 Profession'],
+            'birth_date' => ['label' => '📅 Date de naissance (YYYY-MM-DD)'],
+            'gender'     => ['label' => '⚧ Sexe (M/F)'],
+            'civility'   => ['label' => '🎩 Civilité'],
+            'id_type'    => ['label' => '🪪 Type de pièce'],
+            'id_number'  => ['label' => '🔢 Numéro de pièce'],
+            'id_expiry'  => ['label' => '📆 Date expiration (YYYY-MM-DD)'],
         ],
 
         'beneficiary' => [
-            'first_name' => [
-                'label' => "Nom du bénéficiaire",
-                'rule'  => 'required',
-            ],
-            'last_name' => [
-                'label' => "Prénom du bénéficiaire",
-                'rule'  => 'required',
-            ],
-            'phone' => [
-                'label' => "Téléphone du bénéficiaire",
-                'rule'  => 'phone',
-            ],
-            'country' => [
-                'label' => "Pays bénéficiaire (ISO2)",
-                'rule'  => 'iso2',
-            ],
+            'first_name' => ['label' => '👥 Nom du bénéficiaire'],
+            'last_name'  => ['label' => 'Prénom'],
+            'phone'      => ['label' => '📞 Téléphone'],
+            'country'    => ['label' => '🌍 Code pays'],
+            'address'    => ['label' => '🏠 Adresse'],
+            'occupation' => ['label' => '💼 Profession'],
+            'birth_date' => ['label' => '📅 Date de naissance'],
+            'gender'     => ['label' => '⚧ Sexe'],
+            'civility'   => ['label' => '🎩 Civilité'],
+            'id_type'    => ['label' => '🪪 Type de pièce'],
+            'id_number'  => ['label' => '🔢 Numéro de pièce'],
+            'id_expiry'  => ['label' => '📆 Date expiration (YYYY-MM-DD)'],
         ],
     ];
+
     private function validateInput(string $value, string $rule): bool
     {
         return match ($rule) {
