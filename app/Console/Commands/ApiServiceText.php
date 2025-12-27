@@ -28,7 +28,7 @@ class ApiServiceText extends Command
      */
     public function handle()
     {
-        $session = WhatsappSession::find(31);
+        $session = WhatsappSession::find(56);
         if (!$session) {
             logger("Session non trouvée");
             return;
@@ -39,89 +39,101 @@ class ApiServiceText extends Command
     }
     private function executeTransferGuess(WhatsappSession $session)
     {
-        $sender = json_decode($session->sender,true);
-        $beneficiary  =json_decode( $session->beneficiary,true);
+        $sender      = json_decode($session->sender, true);
+        $beneficiary = json_decode($session->beneficiary, true);
 
         $data = [
-            "amount" => $session->amount,
-            "rate" => $session->fees ?? 0,
-            "total_amount" => $session->amount,
-            "comment" => "Paiement facture",
-            "account_number" => $session->accountNumber ?? null,
-            "wallet" => "BankWallet",
-            "origin_fond" => $session->origin_fond,
-            "motif" => $session->motif,
-            "relaction" => $session->relaction,
-            'country_id'     => $session->countryId,
-            'city_id'        => $session->cityId ?? null,
-            "operator_id" => $session->operator_id,
-            "bank_name" => "Banque Centrale",
-            'swiftCode'      => $session->swiftCode ?? null,
-            'ifscCode'       => $session->ifscCode ?? null,
+            "amount"        => $session->amount,
+            "rate"          => $session->fees ?? 0,
+            "total_amount"  => $session->amount + ($session->fees ?? 0),
+            "comment"       => "Transfert WhatsApp",
+            "origin_fond"   => $session->origin_fond_id,
+            "motif"         => $session->motif_id,
+            "relation"      => $session->relation_id,
+            "country_id"    => $session->countryId,
+            "city_id"       => $session->cityId,
+            "operator_id"   => $session->operator_id,
+            "account_number"=> $session->accountNumber,
+            "swiftCode"     => $session->swiftCode,
+            "ifscCode"      => $session->ifscCode,
+            "wallet"        => $session->transfer_mode === 'mobile' ? 'MobileWallet' : 'BankWallet',
 
             "sender" => [
-                "customer_id" => 13,
-                "type" => "P",
-                "firstname" => $sender['first_name'] ,
-                "lastname" => $sender['last_name'],
-                "email" => $sender['email'],
-                "address" => $sender['address'],
-                "dateOfBirth" =>$sender['birth_date'],
-                "expireddatepiece" => $sender['id_expiry'],
+                "customer_id"          => 13,
+                "type"          => "P",
+                "firstname"     => $sender['first_name'],
+                "lastname"      => $sender['last_name'],
+                "email"         => $sender['email'],
+                "phone"         => $sender['phone'],
+                "address"       => $sender['address'],
+                "dateOfBirth"   => $sender['birth_date'],
+                "numeropiece"   => $sender['id_number'],
                 "typeidentification" => $sender['id_type'],
-                "numeropiece" => $sender['id_number'],
-                "country" => $sender['country'],
-                "civility" => $sender['civility'],
-                "gender" => $sender['gender'],
-                "city" => $session->city ,
-                "occupation" => $sender['occupation'],
-                "phone" => $sender['phone']
+                "expireddatepiece"   => $sender['id_expiry'],
+                "country"       => $sender['country'],
+                "city"          => $session->city,
+                "gender"        => $sender['gender'],
+                "civility"      => $sender['civility'],
+                "occupation"   => $sender['occupation'],
             ],
 
             "beneficiary" => [
-                "customer_id" => 13,
-                "type" => "P", // P ou B
-                "email" => $beneficiary['email'],
-                "phone" => $beneficiary['phone'],
-                "dateOfBirth" => $beneficiary['birth_date'],
-                "document_expired" => $beneficiary['id_expiry'],
-                "countryIsoCode" => $beneficiary['country'],
-                "document_number" => $beneficiary['id_number'],
-                "document_id" => $beneficiary['id_type'],
-
-                "account_number" => $session->accontNumber,
-                "ifsc_code" => $session->ifsc_code,
-                "swift_code" => $session->swift_code,
-
-                "first_name" => $beneficiary['first_name'],
-                "last_name" => $beneficiary['last_name']
+                "customer_id"          => 13,
+                "type"              => "P",
+                "firstname"         => $beneficiary['first_name'],
+                "lastname"          => $beneficiary['last_name'],
+                "email"             => $beneficiary['email'] ?? null,
+                "phone"             => $beneficiary['phone'],
+                "dateOfBirth"       => $beneficiary['birth_date'],
+                "document_number"   => $beneficiary['id_number'],
+                "document_id"       => $beneficiary['id_type'],
+                "document_expired"  => $beneficiary['id_expiry'],
+                "countryIsoCode"    => $beneficiary['country'],
+                "account_number"    => $session->accountNumber,
+                "ifsc_code"         => $session->ifscCode,
+                "swift_code"        => $session->swiftCode,
             ]
         ];
+logger($data);
+        $endpoint = $session->transfer_mode === 'mobile' ? 'mobile' : 'bank';
 
-
-        // Choix du endpoint selon le mode
-        $endpoint = ($session->transfer_mode === 'mobile') ? 'mobile' : 'bank';
-
-        // Appel API
         $response = Http::withToken($session->token)
             ->post(config('whatsapp.wtc_url') . "api/transactions/$endpoint", $data);
 
-        // Vérifier succès
         if ($response->failed()) {
-            logger("Erreur transfert : ", $response->json());
-            return [
-                'status'  => 'error',
-                'message' => 'Impossible de réaliser le transfert. Réessayez plus tard.'
-            ];
+            logger()->error("Erreur transfert", [
+                'session_id' => $session->id,
+                'response'   => $response->json()
+            ]);
+
+           logger(
+                $session->wa_id.
+                "❌ *Transfert échoué*\nUne erreur est survenue. Veuillez réessayer plus tard."
+            );
         }
 
-        // Retour JSON de l’API
         $res = $response->json();
+        logger($res);
+        // Exemple de champs retournés
+        $transactionId = $res['data']['transaction_id'] ?? 'N/A';
+        $status        = $res['data']['status'] ?? 'EN COURS';
 
-        // Mettre à jour la session
-        $session->update(['step' => 'completed']);
+        $session->update([
+            'step'           => 'completed',
+            'transaction_id' => $transactionId,
+            'api_response'   => json_encode($res),
+        ]);
 
-        return $res;
+        logger(
+            $session->wa_id.
+            "✅ *Transfert effectué avec succès*\n\n"
+            . "🧾 Référence : *{$transactionId}*\n"
+            . "💰 Montant : *{$session->amount} XAF*\n"
+            . "💸 Frais : *{$session->fees} XAF*\n"
+            . "📌 Statut : *{$status}*\n\n"
+            . "Merci d’avoir utilisé *AGENSIC SOLUTION* 🙏"
+        );
     }
+
 
 }
