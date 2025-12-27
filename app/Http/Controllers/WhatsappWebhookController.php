@@ -1965,45 +1965,70 @@ class WhatsappWebhookController extends Controller
 }
     private function handleKycStep(
         WhatsappSession $session,
-        string $actor, // sender | beneficiary
+        string $type,          // sender | beneficiary
         string $text,
-        string $nextGlobalStep
+        string $nextStep       // step suivant après la fin
     ) {
-        $index = $session->{$actor . '_index'} ?? 0;
-        $fields = array_keys($this->kycSteps[$actor]);
-        $field = $fields[$index];
-        $config = $this->kycSteps[$actor][$field];
+        $indexKey = $type . '_index';     // sender_index / beneficiary_index
+        $dataKey  = $type;                // sender / beneficiary
 
-        if (!$this->validateInput($text, $config['rule'])) {
-            return $this->send($session->wa_id, "❌ Donnée invalide.\n" . $config['label']);
+        $index = (int) ($session->$indexKey ?? 0);
+
+        $steps = array_keys($this->kycSteps[$type]);
+
+        // ❌ Sécurité : index hors limite
+        if (!isset($steps[$index])) {
+            $session->update([
+                'step' => $nextStep
+            ]);
+            return null;
         }
 
-        // Enregistrer la donnée
-        $data = json_decode($session->$actor ?? '{}', true);
-        $data[$field] = strtoupper($config['rule'] === 'iso2' ? $text : $text);
+        $field = $steps[$index];
 
-        $session->update([
-            $actor => json_encode($data),
-            $actor . '_index' => $index + 1
-        ]);
-
-        // Étape suivante
-        if ($index + 1 >= count($fields)) {
-            $session->update([
-                'step' => $nextGlobalStep,
-                $actor . '_index' => null
-            ]);
-
-            return $this->send($session->wa_id,
-                "✅ Informations $actor terminées."
+        // ❌ Validation basique
+        if (empty(trim($text))) {
+            return $this->send(
+                $session->wa_id,
+                "❌ Champ invalide.\n" . $this->kycSteps[$type][$field]['label']
             );
         }
 
-        // Question suivante
-        $nextField = $fields[$index + 1];
-        return $this->send($session->wa_id,
-            $this->kycSteps[$actor][$nextField]['label']
+        // 🔹 Récup données existantes
+        $data = json_decode($session->$dataKey ?? '{}', true);
+
+        // 🔹 Enregistrer champ courant
+        $data[$field] = trim($text);
+
+        // 🔹 Incrément index
+        $index++;
+
+        // 🔹 FIN DU KYC → étape suivante
+        if (!isset($steps[$index])) {
+
+            $session->update([
+                $dataKey  => json_encode($data),
+                $indexKey => 0,
+                'step'    => $nextStep
+            ]);
+
+            return $this->send(
+                $session->wa_id,
+                "✅ Informations $type enregistrées."
+            );
+        }
+
+        // 🔹 CONTINUER KYC
+        $session->update([
+            $dataKey  => json_encode($data),
+            $indexKey => $index
+        ]);
+
+        return $this->send(
+            $session->wa_id,
+            $this->kycSteps[$type][$steps[$index]]['label']
         );
     }
+
 
 }
