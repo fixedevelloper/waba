@@ -44,6 +44,8 @@ class WhatsappSession extends Model
         'beneficiary_type',
         'sender_type',
         'mode_step',
+        'accountNumber',
+        'swiftCode',
         'expires_at'
     ];
 
