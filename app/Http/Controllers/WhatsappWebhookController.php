@@ -724,13 +724,17 @@ class WhatsappWebhookController extends Controller
                 }
 
                 $session->update([
-                    'cityId' => $city['id'],
-                    'step'   => 'guess_enter_sender_first_name'
+                    'cityId'        => $city['id'],
+                    'step'          => 'enter_sender',
+                    'sender_index'  => 0,
+                    'sender'        => json_encode([])
                 ]);
 
-                return $this->send($session->wa_id,
-                    "👤 *Informations Expéditeur*\n\n"
-                    . "Entrez le nom" );
+                return $this->send(
+                    $session->wa_id,
+                    $this->kycSteps['sender']['first_name']['label']
+                );
+
 
             // ----------------------
             // SAISIE EXPÉDITEUR
